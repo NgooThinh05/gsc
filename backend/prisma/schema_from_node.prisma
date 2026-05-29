@@ -1,0 +1,338 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum VaiTro {
+  Admin
+  NhanVienHopDong
+  NhanVienMuaSamCoQuan
+  NhanVienThanhToan
+  NhanVienKho
+  QuanLy
+}
+
+enum TrangThaiTaiKhoan {
+  HoatDong
+  Khoa
+}
+
+enum TrangThaiHopDong {
+  HieuLuc
+  HetHan
+  TamDung
+}
+
+enum TrangThaiDonHang {
+  ChoDuyet
+  DaDuyet
+  SanSangGiao
+  GiaoMotPhan
+  DaGiao
+  Huy
+}
+
+enum TrangThaiGiaoHang {
+  DangDongGoi
+  DangGiao
+  DaGiao
+  ThatBai
+}
+
+enum TrangThaiHoaDon {
+  ChoThanhToan
+  DaThanhToan
+  QuaHan
+  Huy
+}
+
+enum TrangThaiHangHoa {
+  CoDuong
+  HetHang
+}
+
+// ==========================================
+// TAI KHOAN - SUPERTABLE
+// ==========================================
+
+model TaiKhoan {
+  MaTaiKhoan   Int               @id @default(autoincrement())
+  TenNguoiDung String            @unique
+  SDT          String?           @unique
+  Email        String            @unique
+  MatKhau      String
+  VaiTro       VaiTro
+  TrangThai    TrangThaiTaiKhoan @default(HoatDong)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  nhanVienHopDong      NhanVienHopDong?
+  nhanVienMuaSamCoQuan NhanVienMuaSamCoQuan?
+  nhanVienThanhToan    NhanVienThanhToan?
+  nhanVienKho          NhanVienKho?
+
+  hopDongs    HopDong[]
+  donDatHangs DonDatHang[]
+  giaoHangs   GiaoHang[]
+  hoaDons     HoaDonThanhToan[]
+  ThuTuChoi   ThuTuChoi[]
+
+  @@map("TaiKhoan")
+}
+
+model NhanVienHopDong {
+  MaTaiKhoan  Int      @id
+  ChucVu      String
+  ChungChi    String?
+  HanMucDuyet Decimal? @db.Decimal(18, 2)
+
+  taiKhoan TaiKhoan @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade)
+
+  @@map("NhanVienHopDong")
+}
+
+model NhanVienMuaSamCoQuan {
+  MaTaiKhoan    Int    @id
+  MaCoQuan      Int
+  BoPhanCongTac String
+
+  taiKhoan TaiKhoan       @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade)
+  coQuan   CoQuanChinhPhu @relation(fields: [MaCoQuan], references: [MaCoQuan], onDelete: Restrict)
+
+  @@map("NhanVienMuaSamCoQuan")
+}
+
+model NhanVienThanhToan {
+  MaTaiKhoan   Int      @id
+  MaSoKeToan   String   @unique
+  HanMucChiTra Decimal? @db.Decimal(18, 2)
+
+  taiKhoan TaiKhoan @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade)
+
+  @@map("NhanVienThanhToan")
+}
+
+model NhanVienKho {
+  MaTaiKhoan   Int    @id
+  KhuVucQuanLy String
+  CaLam        String
+
+  taiKhoan TaiKhoan @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade)
+
+  giaoHangs GiaoHang[] @relation("NhanVienKhoToGiaoHang")
+
+  @@map("NhanVienKho")
+}
+
+// ==========================================
+// CO QUAN CHINH PHU
+// ==========================================
+
+model CoQuanChinhPhu {
+  MaCoQuan  Int      @id @default(autoincrement())
+  Ten       String
+  DiaChi    String?
+  DienThoai String?
+  Email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  nhanVienMuaSam NhanVienMuaSamCoQuan[]
+  hopDongs       HopDong[]
+
+  @@map("CoQuanChinhPhu")
+}
+
+// ==========================================
+// HOP DONG
+// ==========================================
+
+model HopDong {
+  MaHopDong       Int              @id @default(autoincrement())
+  NgayKy          DateTime
+  NgayHetHan      DateTime
+  TrangThai       TrangThaiHopDong @default(HieuLuc)
+  DieuKhoan       String?
+  MaTaiKhoan_NVHD Int
+  MaCoQuan        Int
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  nhanVienHopDong TaiKhoan         @relation(fields: [MaTaiKhoan_NVHD], references: [MaTaiKhoan], onDelete: Restrict)
+  coQuan          CoQuanChinhPhu   @relation(fields: [MaCoQuan], references: [MaCoQuan], onDelete: Restrict)
+  chiTiet         ChiTietHopDong[]
+  donDatHangs     DonDatHang[]
+
+  @@index([MaTaiKhoan_NVHD])
+  @@index([MaCoQuan])
+  @@map("HopDong")
+}
+
+model ChiTietHopDong {
+  MaHopDong    Int
+  MaHangHoa    Int
+  SoLuongToiDa Int
+  SoTienToiDa  Decimal  @db.Decimal(18, 2)
+  createdAt    DateTime @default(now())
+
+  hopDong HopDong @relation(fields: [MaHopDong], references: [MaHopDong], onDelete: Cascade)
+  hangHoa HangHoa @relation(fields: [MaHangHoa], references: [MaHangHoa], onDelete: Restrict)
+
+  @@id([MaHopDong, MaHangHoa])
+  @@map("ChiTietHopDong")
+}
+
+// ==========================================
+// DON DAT HANG
+// ==========================================
+
+model DonDatHang {
+  MaDonHang       Int              @id @default(autoincrement())
+  NgayDat         DateTime         @default(now())
+  TrangThai       TrangThaiDonHang @default(ChoDuyet)
+  TongTien        Decimal          @db.Decimal(18, 2)
+  LuuY            String?
+  MaHopDong       Int
+  MaTaiKhoan_NVMS Int
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  hopDong     HopDong           @relation(fields: [MaHopDong], references: [MaHopDong], onDelete: Restrict)
+  nhanVienMua TaiKhoan          @relation(fields: [MaTaiKhoan_NVMS], references: [MaTaiKhoan], onDelete: Restrict)
+  chiTiet     ChiTietDonHang[]
+  giaoHangs   GiaoHang[]
+  hoaDons     HoaDonThanhToan[]
+  ThuTuChoi   ThuTuChoi[]
+
+  @@index([MaHopDong])
+  @@index([MaTaiKhoan_NVMS])
+  @@map("DonDatHang")
+}
+
+model ChiTietDonHang {
+  MaDonHang   Int
+  MaHangHoa   Int
+  SoLuongDat  Int
+  SoLuongGiao Int      @default(0)
+  DonGia      Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt   DateTime @default(now())
+
+  donHang DonDatHang @relation(fields: [MaDonHang], references: [MaDonHang], onDelete: Cascade)
+  hangHoa HangHoa    @relation(fields: [MaHangHoa], references: [MaHangHoa], onDelete: Restrict)
+
+  @@id([MaDonHang, MaHangHoa])
+  @@map("ChiTietDonHang")
+}
+
+// ==========================================
+// HANG HOA
+// ==========================================
+
+model HangHoa {
+  MaHangHoa       Int              @id @default(autoincrement())
+  Ten             String
+  Gia             Decimal          @db.Decimal(18, 2)
+  SoLuongTrongKho Int              @default(0)
+  ViTriKho        String?
+  MoTa            String?
+  TrangThai       TrangThaiHangHoa @default(CoDuong)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @default(now())
+
+  chiTietHopDong ChiTietHopDong[]
+  chiTietDonHang ChiTietDonHang[]
+
+  @@map("HangHoa")
+}
+
+// ==========================================
+// GIAO HANG
+// ==========================================
+
+model GiaoHang {
+  MaGiaoHang       Int               @id @default(autoincrement())
+  NgayGiao         DateTime          @default(now())
+  DonViVanChuyen   String?
+  TrangThai        TrangThaiGiaoHang @default(DangDongGoi)
+  GhiChu           String?
+  MaDonHang        Int
+  MaTaiKhoan_NVKho Int
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  donHang     DonDatHang @relation(fields: [MaDonHang], references: [MaDonHang], onDelete: Restrict)
+  nhanVienKho TaiKhoan   @relation("NhanVienKhoToGiaoHang", fields: [MaTaiKhoan_NVKho], references: [MaTaiKhoan], onDelete: Restrict)
+
+  @@index([MaDonHang])
+  @@index([MaTaiKhoan_NVKho])
+  @@map("GiaoHang")
+}
+
+// ==========================================
+// HOA DON THANH TOAN
+// ==========================================
+
+model HoaDonThanhToan {
+  MaHoaDon          Int             @id @default(autoincrement())
+  NgayLap           DateTime        @default(now())
+  HinhThucThanhToan String?
+  TongTien          Decimal         @db.Decimal(18, 2)
+  TrangThai         TrangThaiHoaDon @default(ChoThanhToan)
+  GhiChu            String?
+  MaDonHang         Int
+  MaTaiKhoan_NVTT   Int
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  donHang           DonDatHang @relation(fields: [MaDonHang], references: [MaDonHang], onDelete: Restrict)
+  nhanVienThanhToan TaiKhoan   @relation(fields: [MaTaiKhoan_NVTT], references: [MaTaiKhoan], onDelete: Restrict)
+
+  @@index([MaDonHang])
+  @@index([MaTaiKhoan_NVTT])
+  @@map("HoaDonThanhToan")
+}
+
+// ==========================================
+// THU TU CHOI
+// ==========================================
+
+model ThuTuChoi {
+  MaThuTuChoi     Int      @id @default(autoincrement())
+  LiDo            String
+  NgayGui         DateTime @default(now())
+  MaDonHang       Int
+  MaTaiKhoan_NVHD Int
+  createdAt       DateTime @default(now())
+
+  donHang         DonDatHang @relation(fields: [MaDonHang], references: [MaDonHang], onDelete: Cascade)
+  nhanVienHopDong TaiKhoan   @relation(fields: [MaTaiKhoan_NVHD], references: [MaTaiKhoan], onDelete: Restrict)
+
+  @@index([MaDonHang])
+  @@map("ThuTuChoi")
+}
+
+// ==========================================
+// AUDIT LOG
+// ==========================================
+
+model AuditLog {
+  MaLog      Int      @id @default(autoincrement())
+  HanhDong   String
+  DoiTuong   String
+  IdDoiTuong Int
+  MaTaiKhoan Int
+  ChiTiet    String?
+  createdAt  DateTime @default(now())
+
+  @@index([IdDoiTuong])
+  @@index([MaTaiKhoan])
+  @@map("AuditLog")
+}
