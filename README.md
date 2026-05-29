@@ -1,18 +1,26 @@
-  ---
-  2. Cài đặt
+## 🚀 Hướng dẫn chạy dự án (Getting Started)
 
-  # Di chuyển vào thư mục backend
-  cd backend
+Để hệ thống hoạt động đầy đủ, bạn cần chạy song song cả Backend (Máy chủ API) và Frontend (Giao diện). Hãy làm theo các bước sau:
 
-  # Cài dependencies
-  npm install
+### ⚙️ Phần 1: Khởi chạy Backend
+Mở Terminal đầu tiên và gõ lần lượt các lệnh sau:
 
-  5. Chạy ứng dụng
+```bash
+# 1. Di chuyển vào thư mục backend
+cd backend
 
-  Chế độ development (hot-reload với nodemon):
-  npm run dev
+# 2. Cài đặt các thư viện cần thiết (Chỉ cần chạy ở lần đầu tiên clone code về)
+npm install
 
-  Chế độ production:
-  npm start
+# 3. Khởi chạy server
+npm run dev
 
-  Server sẽ chạy tại: http://localhost:4000
+### ⚙️ Phần 2: Khởi chạy fontend
+# Di chuyển vào thư mục frontend
+cd frontend
+
+# Cài đặt các thư viện cho giao diện
+npm install
+
+# Khởi chạy ứng dụng web
+npm run dev
