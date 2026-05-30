@@ -13,8 +13,108 @@ function sanitizeUser(user) {
   return safeUser;
 }
 
-export async function listUsers() {
+// Tạo hồ sơ vai trò (sub-table) tương ứng. Admin/QuanLy không có hồ sơ phụ.
+async function createProfileForRole(tx, MaTaiKhoan, VaiTro, profile = {}) {
+  if (VaiTro === 'NhanVienHopDong') {
+    await tx.nhanVienHopDong.create({
+      data: {
+        MaTaiKhoan,
+        ChucVu: profile.ChucVu || 'Nhân viên hợp đồng',
+        ChungChi: profile.ChungChi || null,
+        HanMucDuyet: profile.HanMucDuyet || null
+      }
+    });
+  } else if (VaiTro === 'NhanVienMuaSamCoQuan') {
+    if (!profile.MaCoQuan) {
+      throw Object.assign(new Error('Nhân viên mua sắm cần MaCoQuan'), { statusCode: 400 });
+    }
+    await tx.nhanVienMuaSamCoQuan.create({
+      data: {
+        MaTaiKhoan,
+        MaCoQuan: Number(profile.MaCoQuan),
+        BoPhanCongTac: profile.BoPhanCongTac || 'Phòng mua sắm'
+      }
+    });
+  } else if (VaiTro === 'NhanVienThanhToan') {
+    await tx.nhanVienThanhToan.create({
+      data: {
+        MaTaiKhoan,
+        MaSoKeToan: profile.MaSoKeToan || `KT-${MaTaiKhoan}`,
+        HanMucChiTra: profile.HanMucChiTra || null
+      }
+    });
+  } else if (VaiTro === 'NhanVienKho') {
+    await tx.nhanVienKho.create({
+      data: {
+        MaTaiKhoan,
+        KhuVucQuanLy: profile.KhuVucQuanLy || 'Kho chính',
+        CaLam: profile.CaLam || 'Ca hành chính'
+      }
+    });
+  }
+}
+
+// Xóa hồ sơ vai trò cũ (dùng deleteMany để an toàn khi không tồn tại).
+async function deleteProfileForRole(tx, MaTaiKhoan, VaiTro) {
+  if (VaiTro === 'NhanVienHopDong') await tx.nhanVienHopDong.deleteMany({ where: { MaTaiKhoan } });
+  else if (VaiTro === 'NhanVienMuaSamCoQuan') await tx.nhanVienMuaSamCoQuan.deleteMany({ where: { MaTaiKhoan } });
+  else if (VaiTro === 'NhanVienThanhToan') await tx.nhanVienThanhToan.deleteMany({ where: { MaTaiKhoan } });
+  else if (VaiTro === 'NhanVienKho') await tx.nhanVienKho.deleteMany({ where: { MaTaiKhoan } });
+}
+
+// Cập nhật các trường hồ sơ của vai trò hiện tại (chỉ những trường được gửi lên).
+async function updateProfileForRole(tx, MaTaiKhoan, VaiTro, profile = {}) {
+  if (VaiTro === 'NhanVienHopDong') {
+    await tx.nhanVienHopDong.update({
+      where: { MaTaiKhoan },
+      data: {
+        ...(profile.ChucVu !== undefined ? { ChucVu: profile.ChucVu } : {}),
+        ...(profile.ChungChi !== undefined ? { ChungChi: profile.ChungChi || null } : {}),
+        ...(profile.HanMucDuyet !== undefined ? { HanMucDuyet: profile.HanMucDuyet || null } : {})
+      }
+    });
+  } else if (VaiTro === 'NhanVienMuaSamCoQuan') {
+    await tx.nhanVienMuaSamCoQuan.update({
+      where: { MaTaiKhoan },
+      data: {
+        ...(profile.MaCoQuan !== undefined && profile.MaCoQuan !== '' ? { MaCoQuan: Number(profile.MaCoQuan) } : {}),
+        ...(profile.BoPhanCongTac !== undefined ? { BoPhanCongTac: profile.BoPhanCongTac } : {})
+      }
+    });
+  } else if (VaiTro === 'NhanVienThanhToan') {
+    await tx.nhanVienThanhToan.update({
+      where: { MaTaiKhoan },
+      data: {
+        ...(profile.MaSoKeToan !== undefined ? { MaSoKeToan: profile.MaSoKeToan } : {}),
+        ...(profile.HanMucChiTra !== undefined ? { HanMucChiTra: profile.HanMucChiTra || null } : {})
+      }
+    });
+  } else if (VaiTro === 'NhanVienKho') {
+    await tx.nhanVienKho.update({
+      where: { MaTaiKhoan },
+      data: {
+        ...(profile.KhuVucQuanLy !== undefined ? { KhuVucQuanLy: profile.KhuVucQuanLy } : {}),
+        ...(profile.CaLam !== undefined ? { CaLam: profile.CaLam } : {})
+      }
+    });
+  }
+}
+
+// 7.5 - Tra cứu người dùng (có thể lọc theo từ khóa tên/email/SĐT)
+export async function listUsers(search) {
+  const keyword = (search || '').trim();
+  const where = keyword
+    ? {
+        OR: [
+          { TenNguoiDung: { contains: keyword, mode: 'insensitive' } },
+          { Email: { contains: keyword, mode: 'insensitive' } },
+          { SDT: { contains: keyword, mode: 'insensitive' } }
+        ]
+      }
+    : {};
+
   const users = await prisma.taiKhoan.findMany({
+    where,
     include: includeProfiles,
     orderBy: { MaTaiKhoan: 'asc' }
   });
@@ -22,6 +122,7 @@ export async function listUsers() {
   return users.map(sanitizeUser);
 }
 
+// 7.1 - Thêm người dùng
 export async function createUser(data) {
   const { TenNguoiDung, SDT, Email, MatKhau, VaiTro, profile = {} } = data;
 
@@ -43,50 +144,7 @@ export async function createUser(data) {
       }
     });
 
-    if (VaiTro === 'NhanVienHopDong') {
-      await tx.nhanVienHopDong.create({
-        data: {
-          MaTaiKhoan: account.MaTaiKhoan,
-          ChucVu: profile.ChucVu || 'Nhân viên hợp đồng',
-          ChungChi: profile.ChungChi || null,
-          HanMucDuyet: profile.HanMucDuyet || null
-        }
-      });
-    }
-
-    if (VaiTro === 'NhanVienMuaSamCoQuan') {
-      if (!profile.MaCoQuan) {
-        throw Object.assign(new Error('Nhân viên mua sắm cần MaCoQuan'), { statusCode: 400 });
-      }
-
-      await tx.nhanVienMuaSamCoQuan.create({
-        data: {
-          MaTaiKhoan: account.MaTaiKhoan,
-          MaCoQuan: Number(profile.MaCoQuan),
-          BoPhanCongTac: profile.BoPhanCongTac || 'Phòng mua sắm'
-        }
-      });
-    }
-
-    if (VaiTro === 'NhanVienThanhToan') {
-      await tx.nhanVienThanhToan.create({
-        data: {
-          MaTaiKhoan: account.MaTaiKhoan,
-          MaSoKeToan: profile.MaSoKeToan || `KT-${account.MaTaiKhoan}`,
-          HanMucChiTra: profile.HanMucChiTra || null
-        }
-      });
-    }
-
-    if (VaiTro === 'NhanVienKho') {
-      await tx.nhanVienKho.create({
-        data: {
-          MaTaiKhoan: account.MaTaiKhoan,
-          KhuVucQuanLy: profile.KhuVucQuanLy || 'Kho chính',
-          CaLam: profile.CaLam || 'Ca hành chính'
-        }
-      });
-    }
+    await createProfileForRole(tx, account.MaTaiKhoan, VaiTro, profile);
 
     return tx.taiKhoan.findUnique({
       where: { MaTaiKhoan: account.MaTaiKhoan },
@@ -97,6 +155,55 @@ export async function createUser(data) {
   return sanitizeUser(user);
 }
 
+// 7.3 - Sửa thông tin người dùng & 7.4 - Cập nhật vai trò người dùng
+export async function updateUser(userId, data, currentUserId) {
+  const MaTaiKhoan = Number(userId);
+
+  const existing = await prisma.taiKhoan.findUnique({ where: { MaTaiKhoan } });
+  if (!existing) {
+    throw Object.assign(new Error('Không tìm thấy tài khoản'), { statusCode: 404 });
+  }
+
+  const isSelf = MaTaiKhoan === Number(currentUserId);
+  const roleChanged = data.VaiTro && data.VaiTro !== existing.VaiTro;
+
+  // Tránh admin tự khóa hoặc tự đổi vai trò của mình -> mất quyền truy cập
+  if (isSelf && roleChanged) {
+    throw Object.assign(new Error('Không thể tự đổi vai trò tài khoản đang đăng nhập'), { statusCode: 400 });
+  }
+  if (isSelf && data.TrangThai === 'Khoa') {
+    throw Object.assign(new Error('Không thể tự khóa tài khoản đang đăng nhập'), { statusCode: 400 });
+  }
+
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const accountData = {};
+    if (data.TenNguoiDung !== undefined) accountData.TenNguoiDung = data.TenNguoiDung;
+    if (data.Email !== undefined) accountData.Email = data.Email;
+    if (data.SDT !== undefined) accountData.SDT = data.SDT || null;
+    if (data.TrangThai !== undefined) accountData.TrangThai = data.TrangThai;
+    if (data.VaiTro !== undefined) accountData.VaiTro = data.VaiTro;
+    if (data.MatKhau) accountData.MatKhau = await bcrypt.hash(data.MatKhau, 10);
+
+    await tx.taiKhoan.update({ where: { MaTaiKhoan }, data: accountData });
+
+    const newRole = data.VaiTro || existing.VaiTro;
+
+    if (roleChanged) {
+      // 7.4 - đổi vai trò: bỏ hồ sơ vai trò cũ, tạo hồ sơ vai trò mới
+      await deleteProfileForRole(tx, MaTaiKhoan, existing.VaiTro);
+      await createProfileForRole(tx, MaTaiKhoan, newRole, data.profile || {});
+    } else if (data.profile) {
+      // 7.3 - sửa thông tin hồ sơ của vai trò hiện tại
+      await updateProfileForRole(tx, MaTaiKhoan, newRole, data.profile);
+    }
+
+    return tx.taiKhoan.findUnique({ where: { MaTaiKhoan }, include: includeProfiles });
+  });
+
+  return sanitizeUser(updatedUser);
+}
+
+// 7.2 - Xóa người dùng
 export async function deleteUser(userId, currentUserId) {
   const MaTaiKhoan = Number(userId);
 
