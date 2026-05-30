@@ -2,7 +2,7 @@ import * as ordersService from '../services/orders.service.js';
 
 export async function createOrder(req, res, next) {
   try {
-    const order = await ordersService.createOrder(req.user.MaTaiKhoan, req.body);
+    const order = await ordersService.createOrder(req.user, req.body);
     return res.status(201).json(order);
   } catch (error) {
     return next(error);

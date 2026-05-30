@@ -2,7 +2,7 @@ import * as contractsService from '../services/contracts.service.js';
 
 export async function createContract(req, res, next) {
   try {
-    const contract = await contractsService.createContract(req.user.MaTaiKhoan, req.body);
+    const contract = await contractsService.createContract(req.user, req.body);
     return res.status(201).json(contract);
   } catch (error) {
     return next(error);
