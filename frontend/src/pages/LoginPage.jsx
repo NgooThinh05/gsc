@@ -30,7 +30,6 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
         <h1 className="text-2xl font-bold text-slate-900">Đăng nhập GSC</h1>
-        <p className="mt-2 text-sm text-slate-500">Token trả về chứa VaiTro để điều hướng dashboard.</p>
         {error && <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
         <label className="mt-6 block text-sm font-medium text-slate-700">Tên người dùng hoặc email</label>
         <input

@@ -12,10 +12,13 @@ cd backend
 # 2. Cài đặt các thư viện cần thiết (Chỉ cần chạy ở lần đầu tiên clone code về)
 npm install
 
-# 3. Khởi chạy server
+# 3. Sinh Prisma client
+npm prisma generate
+
+# 4. Khởi chạy server
 npm run dev
 
-### ⚙️ Phần 2: Khởi chạy fontend
+### ⚙️ Phần 2: Khởi chạy fontend (terminal ≠)
 # Di chuyển vào thư mục frontend
 cd frontend
 

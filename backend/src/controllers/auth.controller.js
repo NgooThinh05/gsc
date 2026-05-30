@@ -23,3 +23,12 @@ export async function me(req, res, next) {
     return next(error);
   }
 }
+
+export async function changePassword(req, res, next) {
+  try {
+    const result = await authService.changePassword(req.user.MaTaiKhoan, req.body);
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+}

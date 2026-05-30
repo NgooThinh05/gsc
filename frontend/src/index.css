@@ -6,3 +6,38 @@ body {
   margin: 0;
   background: #f8fafc;
 }
+
+/* ===== Giao diện tối (bật khi <html> có class .dark) ===== */
+html.dark body {
+  background: #0f172a;
+}
+
+/* Nền */
+html.dark .bg-slate-50 { background-color: #0f172a !important; }
+html.dark .bg-white { background-color: #1e293b !important; }
+html.dark .bg-slate-100 { background-color: #334155 !important; }
+
+/* Chữ */
+html.dark .text-slate-900 { color: #f1f5f9 !important; }
+html.dark .text-slate-700 { color: #cbd5e1 !important; }
+html.dark .text-slate-600 { color: #cbd5e1 !important; }
+html.dark .text-slate-500 { color: #94a3b8 !important; }
+html.dark .text-slate-400 { color: #94a3b8 !important; }
+
+/* Viền */
+html.dark .border-slate-200 { border-color: #334155 !important; }
+html.dark .border-slate-300 { border-color: #475569 !important; }
+html.dark .border-slate-100 { border-color: #334155 !important; }
+html.dark .border-t { border-color: #334155 !important; }
+
+/* Ô nhập liệu */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: #64748b; }
+html.dark input[readonly] { background-color: #334155 !important; }

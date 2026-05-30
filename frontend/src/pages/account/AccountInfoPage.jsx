@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../../api/client';
+import { getTheme, setTheme } from '../../lib/theme';
 
 function Field({ label, value }) {
   return (
@@ -14,11 +15,48 @@ export default function AccountInfoPage() {
   const [me, setMe] = useState(null);
   const [message, setMessage] = useState('');
 
+  const [theme, setThemeState] = useState(getTheme());
+
+  const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwMessage, setPwMessage] = useState('');
+  const [pwError, setPwError] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+
   useEffect(() => {
     apiRequest('/auth/me').then(setMe).catch((error) => setMessage(error.message));
   }, []);
 
   const agency = me?.taiKhoanCoQuan?.coQuan;
+
+  function chooseTheme(next) {
+    setTheme(next);
+    setThemeState(next);
+  }
+
+  async function handleChangePassword(event) {
+    event.preventDefault();
+    setPwMessage('');
+    setPwError('');
+
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      setPwError('Mật khẩu mới và xác nhận không khớp');
+      return;
+    }
+
+    setPwLoading(true);
+    try {
+      const result = await apiRequest('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword })
+      });
+      setPwForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+      setPwMessage(result.message || 'Đổi mật khẩu thành công');
+    } catch (error) {
+      setPwError(error.message);
+    } finally {
+      setPwLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -49,6 +87,63 @@ export default function AccountInfoPage() {
           </div>
         </section>
       )}
+
+      <section className="rounded-xl bg-white p-6 shadow-sm">
+        <h3 className="text-lg font-bold text-slate-900">Giao diện</h3>
+        <p className="mt-1 text-sm text-slate-500">Chọn chế độ hiển thị sáng hoặc tối (áp dụng cho toàn bộ giao diện).</p>
+        <div className="mt-4 flex gap-3">
+          <button
+            type="button"
+            onClick={() => chooseTheme('light')}
+            className={`rounded-lg px-5 py-3 text-sm font-semibold transition ${theme === 'light' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+          >
+            ☀️ Sáng
+          </button>
+          <button
+            type="button"
+            onClick={() => chooseTheme('dark')}
+            className={`rounded-lg px-5 py-3 text-sm font-semibold transition ${theme === 'dark' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+          >
+            🌙 Tối
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-xl bg-white p-6 shadow-sm">
+        <h3 className="text-lg font-bold text-slate-900">Đổi mật khẩu</h3>
+        <p className="mt-1 text-sm text-slate-500">Nhập mật khẩu cũ và mật khẩu mới (tối thiểu 6 ký tự).</p>
+        {pwMessage && <div className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{pwMessage}</div>}
+        {pwError && <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{pwError}</div>}
+        <form onSubmit={handleChangePassword} className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <input
+            type="password"
+            className="rounded-lg border border-slate-300 px-4 py-3"
+            placeholder="Mật khẩu cũ"
+            value={pwForm.oldPassword}
+            onChange={(e) => setPwForm((c) => ({ ...c, oldPassword: e.target.value }))}
+            required
+          />
+          <input
+            type="password"
+            className="rounded-lg border border-slate-300 px-4 py-3"
+            placeholder="Mật khẩu mới"
+            value={pwForm.newPassword}
+            onChange={(e) => setPwForm((c) => ({ ...c, newPassword: e.target.value }))}
+            required
+          />
+          <input
+            type="password"
+            className="rounded-lg border border-slate-300 px-4 py-3"
+            placeholder="Xác nhận mật khẩu mới"
+            value={pwForm.confirmPassword}
+            onChange={(e) => setPwForm((c) => ({ ...c, confirmPassword: e.target.value }))}
+            required
+          />
+          <button disabled={pwLoading} className="rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white disabled:opacity-60 md:col-span-3">
+            {pwLoading ? 'Đang đổi...' : 'Đổi mật khẩu'}
+          </button>
+        </form>
+      </section>
     </div>
   );
 }

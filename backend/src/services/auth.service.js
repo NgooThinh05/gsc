@@ -57,3 +57,29 @@ export async function getCurrentUser(userId) {
   const { MatKhau, ...safeUser } = user;
   return safeUser;
 }
+
+// Đổi mật khẩu cho tài khoản đang đăng nhập (mọi vai trò)
+export async function changePassword(userId, { oldPassword, newPassword }) {
+  if (!oldPassword || !newPassword) {
+    throw Object.assign(new Error('Vui lòng nhập mật khẩu cũ và mật khẩu mới'), { statusCode: 400 });
+  }
+
+  if (String(newPassword).length < 6) {
+    throw Object.assign(new Error('Mật khẩu mới phải có ít nhất 6 ký tự'), { statusCode: 400 });
+  }
+
+  const account = await prisma.taiKhoan.findUnique({ where: { MaTaiKhoan: Number(userId) } });
+  if (!account) {
+    throw Object.assign(new Error('Không tìm thấy tài khoản'), { statusCode: 404 });
+  }
+
+  const isValid = await bcrypt.compare(oldPassword, account.MatKhau);
+  if (!isValid) {
+    throw Object.assign(new Error('Mật khẩu cũ không đúng'), { statusCode: 400 });
+  }
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await prisma.taiKhoan.update({ where: { MaTaiKhoan: account.MaTaiKhoan }, data: { MatKhau: hashed } });
+
+  return { message: 'Đổi mật khẩu thành công' };
+}

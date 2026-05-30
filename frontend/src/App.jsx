@@ -11,6 +11,7 @@ import WarehouseOrderDetailPage from './pages/warehouse/WarehouseOrderDetailPage
 import DashboardPage from './pages/manager/DashboardPage';
 import RevenueReportPage from './pages/manager/RevenueReportPage';
 import WarehouseReportPage from './pages/manager/WarehouseReportPage';
+import PaidInvoicesPage from './pages/manager/PaidInvoicesPage';
 import AccountInfoPage from './pages/account/AccountInfoPage';
 import { useAuthStore } from './store/authStore';
 
@@ -41,6 +42,7 @@ function renderPage(activePage) {
   if (activePage === 'Dashboard') return <DashboardPage />;
   if (activePage === 'Báo cáo doanh thu') return <RevenueReportPage />;
   if (activePage === 'Báo cáo kho') return <WarehouseReportPage />;
+  if (activePage === 'Hóa đơn đã thanh toán') return <PaidInvoicesPage />;
   if (activePage === 'Quản lý người dùng') return <UserManagementPage />;
   if (activePage === 'Hợp đồng') return <ContractManagementPage />;
   if (activePage === 'Duyệt đơn hàng') return <OrderReviewPage />;

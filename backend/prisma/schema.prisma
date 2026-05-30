@@ -26,6 +26,7 @@ model TaiKhoan {
   quanLy          QuanLy?
   taiKhoanCoQuan  TaiKhoanCoQuan?
   ThuTuChoi       ThuTuChoi[]
+  thongBaos       ThongBao[]
 
   @@map("TaiKhoan")
 }
@@ -181,6 +182,9 @@ model HoaDonThanhToan {
   TongTien          Decimal         @db.Decimal(18, 2)
   TrangThai         TrangThaiHoaDon @default(ChoThanhToan)
   GhiChu            String?
+  PhuongThuc        String?
+  MaGiaoDich        String?
+  NgayThanhToan     DateTime?
   MaDonHang         Int
   MaTaiKhoan_NVTT   Int
   createdAt         DateTime        @default(now())
@@ -205,6 +209,21 @@ model ThuTuChoi {
 
   @@index([MaDonHang])
   @@map("ThuTuChoi")
+}
+
+model ThongBao {
+  MaThongBao Int      @id @default(autoincrement())
+  NoiDung    String
+  Loai       String?
+  DaDoc      Boolean  @default(false)
+  MaTaiKhoan Int
+  MaDonHang  Int?
+  MaHoaDon   Int?
+  createdAt  DateTime @default(now())
+  taiKhoan   TaiKhoan @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade)
+
+  @@index([MaTaiKhoan])
+  @@map("ThongBao")
 }
 
 enum VaiTro {

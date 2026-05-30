@@ -27,6 +27,18 @@ export async function listInvoices(req, res, next) {
   }
 }
 
+export async function payInvoice(req, res, next) {
+  try {
+    const invoice = await invoicesService.payInvoice(req.params.invoiceId, req.user.MaTaiKhoan, {
+      ...req.body,
+      requireOwner: req.user.VaiTro === 'TaiKhoanCoQuan'
+    });
+    return res.json(invoice);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function confirmInvoice(req, res, next) {
   try {
     const { invoiceId } = req.params;
