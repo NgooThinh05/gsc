@@ -1,10 +1,10 @@
 const menuByRole = {
-  Admin: ['Dashboard', 'Quản lý người dùng'],
-  QuanLy: ['Dashboard', 'Báo cáo doanh thu', 'Báo cáo kho'],
+  Admin: ['Thông tin tài khoản', 'Dashboard', 'Quản lý người dùng'],
+  QuanLy: ['Thông tin tài khoản', 'Dashboard', 'Báo cáo doanh thu', 'Báo cáo kho'],
   NhanVienHopDong: ['Thông tin tài khoản', 'Hợp đồng', 'Duyệt đơn hàng'],
   TaiKhoanCoQuan: ['Thông tin tài khoản', 'Tạo đơn hàng', 'Đơn hàng của tôi', 'Hợp đồng'],
   NhanVienKho: ['Thông tin tài khoản', 'Quản lý kho', 'Giao hàng'],
-  NhanVienThanhToan: ['Hóa đơn', 'Thanh toán']
+  NhanVienThanhToan: ['Thông tin tài khoản', 'Hóa đơn', 'Thanh toán']
 };
 
 // Đường dẫn icon (Heroicons outline) cho từng mục menu
