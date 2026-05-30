@@ -1,7 +1,19 @@
 import prisma from '../config/prisma.js';
 
-export async function createContract(userId, data) {
-  const { NgayKy, NgayHetHan, MaCoQuan, chiTiet } = data;
+export async function createContract(user, data) {
+  const { NgayKy, NgayHetHan, chiTiet } = data;
+  let MaCoQuan = data.MaCoQuan;
+
+  // Tài khoản cơ quan: hợp đồng luôn gắn với đúng cơ quan của chính họ (1 tài khoản = 1 cơ quan)
+  if (user.VaiTro === 'TaiKhoanCoQuan') {
+    const account = await prisma.taiKhoanCoQuan.findUnique({
+      where: { MaTaiKhoan: user.MaTaiKhoan }
+    });
+    if (!account) {
+      throw Object.assign(new Error('Không tìm thấy thông tin cơ quan của tài khoản'), { statusCode: 403 });
+    }
+    MaCoQuan = account.MaCoQuan;
+  }
 
   if (!MaCoQuan || !NgayKy || !NgayHetHan) {
     throw Object.assign(new Error('Cơ quan, ngày ký và ngày hết hạn là bắt buộc'), { statusCode: 400 });
@@ -27,7 +39,7 @@ export async function createContract(userId, data) {
       NgayKy: new Date(NgayKy),
       NgayHetHan: new Date(NgayHetHan),
       MaCoQuan: Number(MaCoQuan),
-      MaTaiKhoan_NVHD: userId,
+      MaTaiKhoan_NVHD: user.MaTaiKhoan,
       TrangThai: data.TrangThai || 'HieuLuc',
       chiTiet: {
         create: chiTiet.map((item) => ({

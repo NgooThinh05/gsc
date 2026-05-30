@@ -71,14 +71,36 @@ export async function syncOrderApprovals() {
   }
 }
 
-export async function createOrder(userId, data) {
-  const { items } = data;
+export async function createOrder(user, data) {
+  const { MaHopDong, items } = data;
+
+  if (!MaHopDong) {
+    throw Object.assign(new Error('Vui lòng chọn hợp đồng cho đơn hàng'), { statusCode: 400 });
+  }
 
   if (!Array.isArray(items) || items.length === 0) {
     throw Object.assign(new Error('Đơn hàng phải có ít nhất một sản phẩm'), { statusCode: 400 });
   }
 
   return prisma.$transaction(async (tx) => {
+    const contract = await tx.hopDong.findUnique({
+      where: { MaHopDong: Number(MaHopDong) },
+      include: { chiTiet: { include: { hangHoa: true } }, coQuan: true }
+    });
+
+    if (!contract) {
+      throw Object.assign(new Error('Hợp đồng không tồn tại'), { statusCode: 400 });
+    }
+
+    // Hợp đồng phải thuộc đúng cơ quan của tài khoản đặt hàng (1 tài khoản = 1 cơ quan)
+    const purchaser = await tx.taiKhoanCoQuan.findUnique({ where: { MaTaiKhoan: user.MaTaiKhoan } });
+    if (!purchaser) {
+      throw Object.assign(new Error('Không tìm thấy thông tin cơ quan của tài khoản'), { statusCode: 403 });
+    }
+    if (contract.MaCoQuan !== purchaser.MaCoQuan) {
+      throw Object.assign(new Error('Hợp đồng không thuộc cơ quan của bạn'), { statusCode: 403 });
+    }
+
     const orderedIds = items.map((item) => Number(item.MaHangHoa));
     const products = await tx.hangHoa.findMany({ where: { MaHangHoa: { in: orderedIds } } });
     const productMap = new Map(products.map((product) => [product.MaHangHoa, product]));
@@ -101,14 +123,21 @@ export async function createOrder(userId, data) {
       return { MaHangHoa, SoLuongDat };
     });
 
+    // 2.3 - So sánh đơn với điều khoản hợp đồng để quyết định trạng thái khởi tạo
+    const compliance = evaluateOrderCompliance({
+      hopDong: contract,
+      chiTiet: detailRows.map((row) => ({ ...row, hangHoa: productMap.get(row.MaHangHoa) }))
+    });
+
     return tx.donDatHang.create({
       data: {
-        MaTaiKhoan_NVMS: userId,
+        MaHopDong: contract.MaHopDong,
+        MaTaiKhoan_NVMS: user.MaTaiKhoan,
         TongTien: total,
-        TrangThai: 'ChoDuyet',
+        TrangThai: compliance.valid ? 'DaDuyet' : 'ChoDuyet',
         chiTiet: { create: detailRows }
       },
-      include: { chiTiet: { include: { hangHoa: true } }, hopDong: true }
+      include: { chiTiet: { include: { hangHoa: true } }, hopDong: { include: { coQuan: true } } }
     });
   });
 }

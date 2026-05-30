@@ -14,3 +14,12 @@ export async function login(req, res, next) {
     return next(error);
   }
 }
+
+export async function me(req, res, next) {
+  try {
+    const user = await authService.getCurrentUser(req.user.MaTaiKhoan);
+    return res.json(user);
+  } catch (error) {
+    return next(error);
+  }
+}

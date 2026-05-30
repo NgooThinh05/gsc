@@ -37,3 +37,23 @@ export async function login({ identifier, password }) {
     user: payload
   };
 }
+
+// Thông tin tài khoản hiện tại (kèm cơ quan nếu là TaiKhoanCoQuan)
+export async function getCurrentUser(userId) {
+  const user = await prisma.taiKhoan.findUnique({
+    where: { MaTaiKhoan: Number(userId) },
+    include: {
+      nhanVienHopDong: true,
+      taiKhoanCoQuan: { include: { coQuan: true } },
+      nhanVienKho: true,
+      quanLy: true
+    }
+  });
+
+  if (!user) {
+    throw Object.assign(new Error('Không tìm thấy tài khoản'), { statusCode: 404 });
+  }
+
+  const { MatKhau, ...safeUser } = user;
+  return safeUser;
+}

@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 
-const initialDetail = { MaHangHoa: '', SoLuongToiDa: '', SoTienToiDa: '' };
+const initialDetail = { MaHangHoa: '', SoTienToiDa: '' };
 
 export default function ContractManagementPage() {
   const user = useAuthStore((state) => state.user);
   const isHopDong = user?.VaiTro === 'NhanVienHopDong';
+  const isCoQuan = user?.VaiTro === 'TaiKhoanCoQuan';
+  const canCreate = isHopDong || isCoQuan;
   const [agencies, setAgencies] = useState([]);
+  const [myAgency, setMyAgency] = useState(null);
   const [products, setProducts] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [form, setForm] = useState({
@@ -36,6 +39,12 @@ export default function ContractManagementPage() {
     setAgencies(agencyList);
     setProducts(productList);
     setContracts(contractList);
+
+    // Tài khoản cơ quan: lấy cơ quan của chính mình để hiển thị tự động
+    if (isCoQuan) {
+      const me = await apiRequest('/auth/me');
+      setMyAgency(me.taiKhoanCoQuan?.coQuan || null);
+    }
   }
 
   useEffect(() => {
@@ -74,19 +83,21 @@ export default function ContractManagementPage() {
     try {
       const chiTiet = form.chiTiet.map((detail) => ({
         MaHangHoa: Number(detail.MaHangHoa),
-        SoLuongToiDa: Number(detail.SoLuongToiDa),
         SoTienToiDa: Number(detail.SoTienToiDa)
       }));
 
+      const payload = {
+        NgayKy: form.NgayKy,
+        NgayHetHan: form.NgayHetHan,
+        TrangThai: form.TrangThai,
+        chiTiet
+      };
+      // NV hợp đồng chọn cơ quan; tài khoản cơ quan thì backend tự gán cơ quan của họ
+      if (isHopDong) payload.MaCoQuan = Number(form.MaCoQuan);
+
       await apiRequest('/contracts', {
         method: 'POST',
-        body: JSON.stringify({
-          MaCoQuan: Number(form.MaCoQuan),
-          NgayKy: form.NgayKy,
-          NgayHetHan: form.NgayHetHan,
-          TrangThai: form.TrangThai,
-          chiTiet
-        })
+        body: JSON.stringify(payload)
       });
 
       setForm({
@@ -131,18 +142,24 @@ export default function ContractManagementPage() {
   return (
     <div className="space-y-6">
 
-      {/* ====== TẠO HỢP ĐỒNG (chỉ NV Hợp đồng) ====== */}
-      {isHopDong && (
+      {/* ====== TẠO HỢP ĐỒNG (NV Hợp đồng hoặc Tài khoản cơ quan) ====== */}
+      {canCreate && (
         <section className="rounded-xl bg-white p-6 shadow-sm">
           <h3 className="text-lg font-bold text-slate-900">Tạo hợp đồng mới</h3>
-          <p className="mt-1 text-sm text-slate-500">Tạo hợp đồng và chi tiết giới hạn đặt hàng cho từng cơ quan.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {isCoQuan ? 'Tạo hợp đồng cho cơ quan của bạn (cơ quan được điền tự động).' : 'Tạo hợp đồng và chi tiết giới hạn đặt hàng cho từng cơ quan.'}
+          </p>
           {message && <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{message}</div>}
           <form onSubmit={handleSubmit} className="mt-6 space-y-6">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <select className="rounded-lg border px-4 py-3" value={form.MaCoQuan} onChange={(e) => updateForm('MaCoQuan', e.target.value)} required>
-                <option value="">Chọn cơ quan</option>
-                {agencies.map((agency) => <option key={agency.MaCoQuan} value={agency.MaCoQuan}>{agency.Ten}</option>)}
-              </select>
+              {isCoQuan ? (
+                <input className="rounded-lg border bg-slate-100 px-4 py-3 font-medium text-slate-700" value={myAgency ? myAgency.Ten : 'Đang tải cơ quan...'} readOnly />
+              ) : (
+                <select className="rounded-lg border px-4 py-3" value={form.MaCoQuan} onChange={(e) => updateForm('MaCoQuan', e.target.value)} required>
+                  <option value="">Chọn cơ quan</option>
+                  {agencies.map((agency) => <option key={agency.MaCoQuan} value={agency.MaCoQuan}>{agency.Ten}</option>)}
+                </select>
+              )}
               <input className="rounded-lg border px-4 py-3" type="date" value={form.NgayKy} onChange={(e) => updateForm('NgayKy', e.target.value)} required />
               <input className="rounded-lg border px-4 py-3" type="date" value={form.NgayHetHan} onChange={(e) => updateForm('NgayHetHan', e.target.value)} required />
               <select className="rounded-lg border px-4 py-3" value={form.TrangThai} onChange={(e) => updateForm('TrangThai', e.target.value)}>
@@ -158,8 +175,7 @@ export default function ContractManagementPage() {
                   <tr>
                     <th className="p-3">Hàng hóa</th>
                     <th className="p-3">Giá hiện tại</th>
-                    <th className="p-3">Số lượng tối đa</th>
-                    <th className="p-3">Số tiền tối đa</th>
+                    <th className="p-3">Hạn mức tiền (tối đa)</th>
                     <th className="p-3">Thao tác</th>
                   </tr>
                 </thead>
@@ -179,9 +195,6 @@ export default function ContractManagementPage() {
                           </select>
                         </td>
                         <td className="p-3">{selectedProduct ? `${Number(selectedProduct.Gia).toLocaleString('vi-VN')} đ` : '-'}</td>
-                        <td className="p-3">
-                          <input className="w-36 rounded-lg border px-3 py-2" type="number" min="1" value={detail.SoLuongToiDa} onChange={(e) => updateDetail(index, 'SoLuongToiDa', e.target.value)} required />
-                        </td>
                         <td className="p-3">
                           <input className="w-44 rounded-lg border px-3 py-2" type="number" min="1" value={detail.SoTienToiDa} onChange={(e) => updateDetail(index, 'SoTienToiDa', e.target.value)} required />
                         </td>

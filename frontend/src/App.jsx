@@ -11,6 +11,7 @@ import WarehouseOrderDetailPage from './pages/warehouse/WarehouseOrderDetailPage
 import DashboardPage from './pages/manager/DashboardPage';
 import RevenueReportPage from './pages/manager/RevenueReportPage';
 import WarehouseReportPage from './pages/manager/WarehouseReportPage';
+import AccountInfoPage from './pages/account/AccountInfoPage';
 import { useAuthStore } from './store/authStore';
 
 function PlaceholderPage({ title }) {
@@ -36,6 +37,7 @@ function getDefaultPage(role) {
 }
 
 function renderPage(activePage) {
+  if (activePage === 'Thông tin tài khoản') return <AccountInfoPage />;
   if (activePage === 'Dashboard') return <DashboardPage />;
   if (activePage === 'Báo cáo doanh thu') return <RevenueReportPage />;
   if (activePage === 'Báo cáo kho') return <WarehouseReportPage />;
