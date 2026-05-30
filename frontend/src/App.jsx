@@ -3,6 +3,7 @@ import LoginPage from './pages/LoginPage';
 import UserManagementPage from './pages/admin/UserManagementPage';
 import InvoiceListPage from './pages/accounting/InvoiceListPage';
 import ContractManagementPage from './pages/contracts/ContractManagementPage';
+import OrderReviewPage from './pages/contracts/OrderReviewPage';
 import CreateOrderPage from './pages/purchasing/CreateOrderPage';
 import MyOrdersPage from './pages/purchasing/MyOrdersPage';
 import DeliveryPage from './pages/delivery/DeliveryPage';
@@ -34,6 +35,7 @@ function getDefaultPage(role) {
 function renderPage(activePage) {
   if (activePage === 'Quản lý người dùng') return <UserManagementPage />;
   if (activePage === 'Hợp đồng') return <ContractManagementPage />;
+  if (activePage === 'Duyệt đơn hàng') return <OrderReviewPage />;
   if (activePage === 'Tạo đơn hàng') return <CreateOrderPage />;
   if (activePage === 'Đơn hàng của tôi') return <MyOrdersPage />;
   if (activePage === 'Quản lý kho') return <WarehouseOrderDetailPage />;

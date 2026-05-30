@@ -144,7 +144,7 @@ export default function MyOrdersPage() {
                 </thead>
                 <tbody>
                   {order.chiTiet.map((detail) => {
-                    const shortage = detail.SoLuongGiao < detail.SoLuongDat && order.TrangThai !== 'ChoDuyet';
+                    const shortage = detail.SoLuongGiao < detail.SoLuongDat && !['ChoDuyet', 'DaDuyet'].includes(order.TrangThai);
                     return (
                       <tr key={`${order.MaDonHang}-${detail.MaHangHoa}`} className={`border-t ${shortage ? 'bg-red-50 text-red-800' : ''}`}>
                         <td className="p-3 font-medium">{detail.hangHoa.Ten}</td>
