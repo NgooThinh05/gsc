@@ -40,8 +40,7 @@ export async function createInvoice(userId, data) {
         TrangThai: data.TrangThai || 'ChoThanhToan'
       },
       include: {
-        donHang: { include: { chiTiet: { include: { hangHoa: true } } } },
-        nhanVienThanhToan: true
+        donHang: { include: { chiTiet: { include: { hangHoa: true } } } }
       }
     });
   });
@@ -65,8 +64,7 @@ export async function listBillableOrders() {
 export async function listInvoices() {
   return prisma.hoaDonThanhToan.findMany({
     include: {
-      donHang: { include: { hopDong: { include: { coQuan: true } }, chiTiet: { include: { hangHoa: true } }, giaoHangs: true } },
-      nhanVienThanhToan: true
+      donHang: { include: { hopDong: { include: { coQuan: true } }, chiTiet: { include: { hangHoa: true } }, giaoHangs: true } }
     },
     orderBy: { NgayLap: 'desc' }
   });

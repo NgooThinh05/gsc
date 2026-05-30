@@ -5,7 +5,7 @@ import { verifyRole } from '../middleware/verifyRole.js';
 
 const router = Router();
 
-router.get('/', authenticateToken, verifyRole('NhanVienHopDong', 'NhanVienMuaSamCoQuan', 'NhanVienKho', 'QuanLy', 'Admin'), listProducts);
+router.get('/', authenticateToken, verifyRole('NhanVienHopDong', 'TaiKhoanCoQuan', 'NhanVienKho', 'QuanLy', 'Admin'), listProducts);
 router.post('/', authenticateToken, verifyRole('NhanVienKho', 'Admin'), createProduct);
 
 export default router;

@@ -6,9 +6,9 @@ import { verifyRole } from '../middleware/verifyRole.js';
 
 const router = Router();
 
-router.get('/', authenticateToken, verifyRole('NhanVienHopDong', 'NhanVienMuaSamCoQuan', 'NhanVienKho', 'QuanLy'), listOrders);
-router.get('/:id', authenticateToken, verifyRole('NhanVienHopDong', 'NhanVienMuaSamCoQuan', 'NhanVienKho', 'NhanVienThanhToan', 'QuanLy'), getOrder);
-router.post('/', authenticateToken, verifyRole('NhanVienMuaSamCoQuan'), createOrder);
+router.get('/', authenticateToken, verifyRole('NhanVienHopDong', 'TaiKhoanCoQuan', 'NhanVienKho', 'QuanLy'), listOrders);
+router.get('/:id', authenticateToken, verifyRole('NhanVienHopDong', 'TaiKhoanCoQuan', 'NhanVienKho', 'NhanVienThanhToan', 'QuanLy'), getOrder);
+router.post('/', authenticateToken, verifyRole('TaiKhoanCoQuan'), createOrder);
 router.post('/:orderId/reject', authenticateToken, verifyRole('NhanVienHopDong'), rejectOrder);
 
 export default router;

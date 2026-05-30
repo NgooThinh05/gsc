@@ -130,39 +130,68 @@ export default function OrderReviewPage() {
         </table>
       </div>
 
+      {/* ====== MODAL TỪ CHỐI ====== */}
       {rejectOrder && (
-        <form onSubmit={handleReject} className="mt-6 rounded-xl border border-red-200 bg-red-50 p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h4 className="text-lg font-bold text-red-950">Từ chối đơn #{rejectOrder.MaDonHang}</h4>
-              <p className="mt-1 text-sm text-red-800">
-                Nhập lí do vi phạm. Hệ thống sẽ lưu thư từ chối kèm lí do và chuyển đơn sang trạng thái Hủy.
-              </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !submitting && setRejectOrder(null)}>
+          <form onSubmit={handleReject} className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-bold text-red-950">Từ chối đơn hàng #{rejectOrder.MaDonHang}</h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  Đơn của <strong>{rejectOrder.hopDong?.coQuan?.Ten || 'Không xác định'}</strong> — {Number(rejectOrder.TongTien).toLocaleString('vi-VN')} đ
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectOrder(null)}
+                disabled={submitting}
+                className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+              >
+                Đóng
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setRejectOrder(null)}
-              className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-red-700"
-            >
-              Đóng
-            </button>
-          </div>
-          <textarea
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            required
-            rows={3}
-            placeholder="Ví dụ: Số lượng vượt hạn mức hợp đồng, hàng hóa không thuộc danh mục..."
-            className="mt-4 w-full rounded-lg border border-red-200 px-3 py-2 text-sm"
-          />
-          <button
-            type="submit"
-            disabled={submitting || !reason.trim()}
-            className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300"
-          >
-            {submitting ? 'Đang xử lý...' : 'Xác nhận từ chối'}
-          </button>
-        </form>
+
+            {rejectOrder.danhGia?.reasons?.length > 0 && (
+              <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                <strong className="block mb-1">Lí do vi phạm:</strong>
+                <ul className="list-disc pl-4 space-y-1">
+                  {rejectOrder.danhGia.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-4">
+              <label className="text-sm font-semibold text-slate-700">Soạn thư từ chối</label>
+              <p className="text-xs text-slate-400 mb-2">Thư từ chối này sẽ được gửi đến bên mua sắm và lưu vào hệ thống.</p>
+              <textarea
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                required
+                rows={5}
+                placeholder="Nhập lí do từ chối chi tiết..."
+                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm focus:border-red-400 focus:ring-1 focus:ring-red-400"
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRejectOrder(null)}
+                disabled={submitting}
+                className="rounded-lg bg-slate-100 px-5 py-2 font-semibold text-slate-700 hover:bg-slate-200"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || !reason.trim()}
+                className="rounded-lg bg-red-600 px-5 py-2 font-semibold text-white hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </section>
   );

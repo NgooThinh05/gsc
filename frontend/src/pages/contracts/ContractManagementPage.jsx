@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../api/client';
+import { useAuthStore } from '../../store/authStore';
 
 const initialDetail = { MaHangHoa: '', SoLuongToiDa: '', SoTienToiDa: '' };
 
 export default function ContractManagementPage() {
+  const user = useAuthStore((state) => state.user);
+  const isHopDong = user?.VaiTro === 'NhanVienHopDong';
   const [agencies, setAgencies] = useState([]);
   const [products, setProducts] = useState([]);
   const [contracts, setContracts] = useState([]);
@@ -17,6 +20,7 @@ export default function ContractManagementPage() {
   const [extendDates, setExtendDates] = useState({});
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [detailContract, setDetailContract] = useState(null);
 
   const selectedProductIds = useMemo(
     () => new Set(form.chiTiet.map((detail) => Number(detail.MaHangHoa)).filter(Boolean)),
@@ -126,77 +130,82 @@ export default function ContractManagementPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900">Tạo hợp đồng mới</h3>
-        <p className="mt-1 text-sm text-slate-500">Chỉ nhân viên hợp đồng được tạo hợp đồng và chi tiết giới hạn đặt hàng.</p>
-        {message && <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{message}</div>}
-        <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <select className="rounded-lg border px-4 py-3" value={form.MaCoQuan} onChange={(e) => updateForm('MaCoQuan', e.target.value)} required>
-              <option value="">Chọn cơ quan</option>
-              {agencies.map((agency) => <option key={agency.MaCoQuan} value={agency.MaCoQuan}>{agency.Ten}</option>)}
-            </select>
-            <input className="rounded-lg border px-4 py-3" type="date" value={form.NgayKy} onChange={(e) => updateForm('NgayKy', e.target.value)} required />
-            <input className="rounded-lg border px-4 py-3" type="date" value={form.NgayHetHan} onChange={(e) => updateForm('NgayHetHan', e.target.value)} required />
-            <select className="rounded-lg border px-4 py-3" value={form.TrangThai} onChange={(e) => updateForm('TrangThai', e.target.value)}>
-              <option value="HieuLuc">Hiệu lực</option>
-              <option value="TamDung">Tạm dừng</option>
-              <option value="HetHan">Hết hạn</option>
-            </select>
-          </div>
 
-          <div className="overflow-hidden rounded-lg border border-slate-200">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-100 text-slate-700">
-                <tr>
-                  <th className="p-3">Hàng hóa</th>
-                  <th className="p-3">Giá hiện tại</th>
-                  <th className="p-3">Số lượng tối đa</th>
-                  <th className="p-3">Số tiền tối đa</th>
-                  <th className="p-3">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {form.chiTiet.map((detail, index) => {
-                  const selectedProduct = products.find((product) => String(product.MaHangHoa) === String(detail.MaHangHoa));
-                  return (
-                    <tr key={index} className="border-t">
-                      <td className="p-3">
-                        <select className="w-full rounded-lg border px-3 py-2" value={detail.MaHangHoa} onChange={(e) => updateDetail(index, 'MaHangHoa', e.target.value)} required>
-                          <option value="">Chọn hàng hóa</option>
-                          {products.map((product) => (
-                            <option key={product.MaHangHoa} value={product.MaHangHoa} disabled={selectedProductIds.has(product.MaHangHoa) && String(product.MaHangHoa) !== String(detail.MaHangHoa)}>
-                              {product.Ten}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="p-3">{selectedProduct ? `${Number(selectedProduct.Gia).toLocaleString('vi-VN')} đ` : '-'}</td>
-                      <td className="p-3">
-                        <input className="w-36 rounded-lg border px-3 py-2" type="number" min="1" value={detail.SoLuongToiDa} onChange={(e) => updateDetail(index, 'SoLuongToiDa', e.target.value)} required />
-                      </td>
-                      <td className="p-3">
-                        <input className="w-44 rounded-lg border px-3 py-2" type="number" min="1" value={detail.SoTienToiDa} onChange={(e) => updateDetail(index, 'SoTienToiDa', e.target.value)} required />
-                      </td>
-                      <td className="p-3">
-                        <button type="button" onClick={() => removeDetailRow(index)} className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white">Xóa dòng</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+      {/* ====== TẠO HỢP ĐỒNG (chỉ NV Hợp đồng) ====== */}
+      {isHopDong && (
+        <section className="rounded-xl bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-slate-900">Tạo hợp đồng mới</h3>
+          <p className="mt-1 text-sm text-slate-500">Tạo hợp đồng và chi tiết giới hạn đặt hàng cho từng cơ quan.</p>
+          {message && <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{message}</div>}
+          <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <select className="rounded-lg border px-4 py-3" value={form.MaCoQuan} onChange={(e) => updateForm('MaCoQuan', e.target.value)} required>
+                <option value="">Chọn cơ quan</option>
+                {agencies.map((agency) => <option key={agency.MaCoQuan} value={agency.MaCoQuan}>{agency.Ten}</option>)}
+              </select>
+              <input className="rounded-lg border px-4 py-3" type="date" value={form.NgayKy} onChange={(e) => updateForm('NgayKy', e.target.value)} required />
+              <input className="rounded-lg border px-4 py-3" type="date" value={form.NgayHetHan} onChange={(e) => updateForm('NgayHetHan', e.target.value)} required />
+              <select className="rounded-lg border px-4 py-3" value={form.TrangThai} onChange={(e) => updateForm('TrangThai', e.target.value)}>
+                <option value="HieuLuc">Hiệu lực</option>
+                <option value="TamDung">Tạm dừng</option>
+                <option value="HetHan">Hết hạn</option>
+              </select>
+            </div>
 
-          <div className="flex gap-3">
-            <button type="button" onClick={addDetailRow} className="rounded-lg bg-slate-900 px-5 py-3 font-semibold text-white">Thêm dòng hàng hóa</button>
-            <button disabled={loading} className="rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white disabled:opacity-60">
-              {loading ? 'Đang tạo...' : 'Tạo hợp đồng'}
-            </button>
-          </div>
-        </form>
-      </section>
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-100 text-slate-700">
+                  <tr>
+                    <th className="p-3">Hàng hóa</th>
+                    <th className="p-3">Giá hiện tại</th>
+                    <th className="p-3">Số lượng tối đa</th>
+                    <th className="p-3">Số tiền tối đa</th>
+                    <th className="p-3">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {form.chiTiet.map((detail, index) => {
+                    const selectedProduct = products.find((product) => String(product.MaHangHoa) === String(detail.MaHangHoa));
+                    return (
+                      <tr key={index} className="border-t">
+                        <td className="p-3">
+                          <select className="w-full rounded-lg border px-3 py-2" value={detail.MaHangHoa} onChange={(e) => updateDetail(index, 'MaHangHoa', e.target.value)} required>
+                            <option value="">Chọn hàng hóa</option>
+                            {products.map((product) => (
+                              <option key={product.MaHangHoa} value={product.MaHangHoa} disabled={selectedProductIds.has(product.MaHangHoa) && String(product.MaHangHoa) !== String(detail.MaHangHoa)}>
+                                {product.Ten}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-3">{selectedProduct ? `${Number(selectedProduct.Gia).toLocaleString('vi-VN')} đ` : '-'}</td>
+                        <td className="p-3">
+                          <input className="w-36 rounded-lg border px-3 py-2" type="number" min="1" value={detail.SoLuongToiDa} onChange={(e) => updateDetail(index, 'SoLuongToiDa', e.target.value)} required />
+                        </td>
+                        <td className="p-3">
+                          <input className="w-44 rounded-lg border px-3 py-2" type="number" min="1" value={detail.SoTienToiDa} onChange={(e) => updateDetail(index, 'SoTienToiDa', e.target.value)} required />
+                        </td>
+                        <td className="p-3">
+                          <button type="button" onClick={() => removeDetailRow(index)} className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white">Xóa dòng</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
+            <div className="flex gap-3">
+              <button type="button" onClick={addDetailRow} className="rounded-lg bg-slate-900 px-5 py-3 font-semibold text-white">Thêm dòng hàng hóa</button>
+              <button disabled={loading} className="rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white disabled:opacity-60">
+                {loading ? 'Đang tạo...' : 'Tạo hợp đồng'}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+
+      {/* ====== DANH SÁCH HỢP ĐỒNG (mọi vai trò đều xem được) ====== */}
       <section className="rounded-xl bg-white p-6 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900">Danh sách hợp đồng</h3>
         <p className="mt-1 text-sm text-slate-500">Hợp đồng quá ngày hết hạn sẽ tự chuyển sang trạng thái Hết hạn khi tải danh sách.</p>
@@ -209,8 +218,8 @@ export default function ContractManagementPage() {
                 <th className="p-3">Ngày ký</th>
                 <th className="p-3">Ngày hết hạn</th>
                 <th className="p-3">Trạng thái</th>
-                <th className="p-3">Số dòng</th>
-                <th className="p-3">Gia hạn</th>
+                <th className="p-3">Chi tiết</th>
+                {isHopDong && <th className="p-3">Gia hạn</th>}
               </tr>
             </thead>
             <tbody>
@@ -225,35 +234,93 @@ export default function ContractManagementPage() {
                       {contract.TrangThai}
                     </span>
                   </td>
-                  <td className="p-3">{contract.chiTiet?.length || 0}</td>
                   <td className="p-3">
-                    <div className="flex gap-2">
-                      <input
-                        type="date"
-                        className="rounded-lg border px-3 py-2"
-                        value={extendDates[contract.MaHopDong] || ''}
-                        onChange={(e) => setExtendDates((current) => ({ ...current, [contract.MaHopDong]: e.target.value }))}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleExtendContract(contract.MaHopDong)}
-                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
-                      >
-                        Gia hạn
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDetailContract(contract)}
+                      className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+                    >
+                      Xem chi tiết
+                    </button>
                   </td>
+                  {isHopDong && (
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          className="rounded-lg border px-3 py-2"
+                          value={extendDates[contract.MaHopDong] || ''}
+                          onChange={(e) => setExtendDates((current) => ({ ...current, [contract.MaHopDong]: e.target.value }))}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleExtendContract(contract.MaHopDong)}
+                          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Gia hạn
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
               {contracts.length === 0 && (
                 <tr>
-                  <td className="p-6 text-center text-slate-500" colSpan="7">Chưa có hợp đồng</td>
+                  <td className="p-6 text-center text-slate-500" colSpan={isHopDong ? 7 : 6}>Chưa có hợp đồng</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </section>
+
+      {/* ====== MODAL CHI TIẾT HỢP ĐỒNG ====== */}
+      {detailContract && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDetailContract(null)}>
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Hợp đồng #{detailContract.MaHopDong}</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  {detailContract.coQuan?.Ten} — {new Date(detailContract.NgayKy).toLocaleDateString('vi-VN')} → {new Date(detailContract.NgayHetHan).toLocaleDateString('vi-VN')}
+                </p>
+              </div>
+              <button type="button" onClick={() => setDetailContract(null)} className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">Đóng</button>
+            </div>
+
+            {detailContract.DieuKhoan && (
+              <div className="mt-4 rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
+                <strong>Điều khoản:</strong> {detailContract.DieuKhoan}
+              </div>
+            )}
+
+            <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-100 text-slate-700">
+                  <tr>
+                    <th className="p-3">Hàng hóa</th>
+                    <th className="p-3">Giá</th>
+                    <th className="p-3">Hạn mức tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailContract.chiTiet?.map((detail) => (
+                    <tr key={detail.MaHangHoa} className="border-t">
+                      <td className="p-3 font-medium">{detail.hangHoa?.Ten || `#${detail.MaHangHoa}`}</td>
+                      <td className="p-3">{detail.hangHoa ? `${Number(detail.hangHoa.Gia).toLocaleString('vi-VN')} đ` : '-'}</td>
+                      <td className="p-3">{Number(detail.SoTienToiDa).toLocaleString('vi-VN')} đ</td>
+                    </tr>
+                  ))}
+                  {(!detailContract.chiTiet || detailContract.chiTiet.length === 0) && (
+                    <tr><td className="p-6 text-center text-slate-500" colSpan="3">Không có chi tiết</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

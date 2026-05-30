@@ -1,39 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../api/client';
 
-const roles = ['Admin', 'QuanLy', 'NhanVienHopDong', 'NhanVienMuaSamCoQuan', 'NhanVienThanhToan', 'NhanVienKho'];
+const roles = ['Admin', 'QuanLy', 'NhanVienHopDong', 'TaiKhoanCoQuan', 'NhanVienKho'];
 
 const initialForm = {
   TenNguoiDung: '',
   Email: '',
   SDT: '',
   MatKhau: '123456',
-  VaiTro: 'NhanVienMuaSamCoQuan',
+  VaiTro: 'TaiKhoanCoQuan',
   TrangThai: 'HoatDong',
-  ChucVu: '',
-  ChungChi: '',
-  HanMucDuyet: '',
-  MaCoQuan: '',
-  BoPhanCongTac: '',
-  MaSoKeToan: '',
-  HanMucChiTra: '',
-  KhuVucQuanLy: '',
-  CaLam: ''
+  MaCoQuan: ''
 };
 
 // Gom các trường hồ sơ theo vai trò để gửi lên backend
 function buildProfile(form) {
-  if (form.VaiTro === 'NhanVienHopDong') {
-    return { ChucVu: form.ChucVu, ChungChi: form.ChungChi, HanMucDuyet: form.HanMucDuyet || null };
-  }
-  if (form.VaiTro === 'NhanVienMuaSamCoQuan') {
-    return { MaCoQuan: form.MaCoQuan, BoPhanCongTac: form.BoPhanCongTac };
-  }
-  if (form.VaiTro === 'NhanVienThanhToan') {
-    return { MaSoKeToan: form.MaSoKeToan, HanMucChiTra: form.HanMucChiTra || null };
-  }
-  if (form.VaiTro === 'NhanVienKho') {
-    return { KhuVucQuanLy: form.KhuVucQuanLy, CaLam: form.CaLam };
+  if (form.VaiTro === 'TaiKhoanCoQuan') {
+    return { MaCoQuan: form.MaCoQuan };
   }
   return {};
 }
@@ -47,62 +30,26 @@ function extractFormFromUser(user) {
     MatKhau: '',
     VaiTro: user.VaiTro,
     TrangThai: user.TrangThai,
-    ChucVu: user.nhanVienHopDong?.ChucVu || '',
-    ChungChi: user.nhanVienHopDong?.ChungChi || '',
-    HanMucDuyet: user.nhanVienHopDong?.HanMucDuyet || '',
-    MaCoQuan: user.nhanVienMuaSamCoQuan?.MaCoQuan || '',
-    BoPhanCongTac: user.nhanVienMuaSamCoQuan?.BoPhanCongTac || '',
-    MaSoKeToan: user.nhanVienThanhToan?.MaSoKeToan || '',
-    HanMucChiTra: user.nhanVienThanhToan?.HanMucChiTra || '',
-    KhuVucQuanLy: user.nhanVienKho?.KhuVucQuanLy || '',
-    CaLam: user.nhanVienKho?.CaLam || ''
+    MaCoQuan: user.taiKhoanCoQuan?.MaCoQuan || ''
   };
 }
 
 function getProfileSummary(user) {
-  if (user.nhanVienHopDong) return `Chức vụ: ${user.nhanVienHopDong.ChucVu}`;
-  if (user.nhanVienMuaSamCoQuan) return `Cơ quan: ${user.nhanVienMuaSamCoQuan.coQuan?.Ten || user.nhanVienMuaSamCoQuan.MaCoQuan}`;
-  if (user.nhanVienThanhToan) return `Mã kế toán: ${user.nhanVienThanhToan.MaSoKeToan}`;
-  if (user.nhanVienKho) return `Kho: ${user.nhanVienKho.KhuVucQuanLy}`;
+  if (user.nhanVienHopDong) return 'Nhân viên hợp đồng';
+  if (user.taiKhoanCoQuan) return `Cơ quan: ${user.taiKhoanCoQuan.coQuan?.Ten || user.taiKhoanCoQuan.MaCoQuan}`;
+  if (user.quanLy) return 'Quản lý';
+  if (user.nhanVienKho) return 'Nhân viên kho';
   return '-';
 }
 
 // Các trường hồ sơ phụ thuộc vai trò, dùng chung cho form tạo & sửa
 function RoleProfileFields({ form, onChange, agencies }) {
-  if (form.VaiTro === 'NhanVienHopDong') {
+  if (form.VaiTro === 'TaiKhoanCoQuan') {
     return (
-      <>
-        <input className="rounded-lg border px-4 py-3" placeholder="Chức vụ" value={form.ChucVu} onChange={(e) => onChange('ChucVu', e.target.value)} />
-        <input className="rounded-lg border px-4 py-3" placeholder="Chứng chỉ" value={form.ChungChi} onChange={(e) => onChange('ChungChi', e.target.value)} />
-        <input className="rounded-lg border px-4 py-3" placeholder="Hạn mức duyệt" type="number" value={form.HanMucDuyet} onChange={(e) => onChange('HanMucDuyet', e.target.value)} />
-      </>
-    );
-  }
-  if (form.VaiTro === 'NhanVienMuaSamCoQuan') {
-    return (
-      <>
-        <select className="rounded-lg border px-4 py-3" value={form.MaCoQuan} onChange={(e) => onChange('MaCoQuan', e.target.value)} required>
-          <option value="">Chọn cơ quan</option>
-          {agencies.map((agency) => <option key={agency.MaCoQuan} value={agency.MaCoQuan}>{agency.Ten}</option>)}
-        </select>
-        <input className="rounded-lg border px-4 py-3 md:col-span-2" placeholder="Bộ phận công tác" value={form.BoPhanCongTac} onChange={(e) => onChange('BoPhanCongTac', e.target.value)} />
-      </>
-    );
-  }
-  if (form.VaiTro === 'NhanVienThanhToan') {
-    return (
-      <>
-        <input className="rounded-lg border px-4 py-3" placeholder="Mã số kế toán" value={form.MaSoKeToan} onChange={(e) => onChange('MaSoKeToan', e.target.value)} />
-        <input className="rounded-lg border px-4 py-3" placeholder="Hạn mức chi trả" type="number" value={form.HanMucChiTra} onChange={(e) => onChange('HanMucChiTra', e.target.value)} />
-      </>
-    );
-  }
-  if (form.VaiTro === 'NhanVienKho') {
-    return (
-      <>
-        <input className="rounded-lg border px-4 py-3" placeholder="Khu vực quản lý" value={form.KhuVucQuanLy} onChange={(e) => onChange('KhuVucQuanLy', e.target.value)} />
-        <input className="rounded-lg border px-4 py-3" placeholder="Ca làm" value={form.CaLam} onChange={(e) => onChange('CaLam', e.target.value)} />
-      </>
+      <select className="rounded-lg border px-4 py-3" value={form.MaCoQuan} onChange={(e) => onChange('MaCoQuan', e.target.value)} required>
+        <option value="">Chọn cơ quan</option>
+        {agencies.map((agency) => <option key={agency.MaCoQuan} value={agency.MaCoQuan}>{agency.Ten}</option>)}
+      </select>
     );
   }
   return null;
@@ -134,7 +81,7 @@ export default function UserManagementPage() {
     loadData().catch((error) => setMessage(error.message));
   }, []);
 
-  // 7.5 - Tra cứu người dùng theo tên / email / SĐT / vai trò
+  // Tra cứu người dùng theo tên / email / SĐT / vai trò
   const filteredUsers = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     if (!keyword) return users;
@@ -207,7 +154,6 @@ export default function UserManagementPage() {
     setMessage('');
   }
 
-  // 7.3 sửa thông tin + 7.4 cập nhật vai trò
   async function handleEditSubmit(event) {
     event.preventDefault();
     setEditLoading(true);
@@ -254,57 +200,17 @@ export default function UserManagementPage() {
     }
   }
 
+  // ==================== RENDER ====================
+
   return (
     <div className="space-y-6">
-      <section className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900">Thêm cơ quan chính phủ</h3>
-        {message && <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{message}</div>}
-        <form onSubmit={handleCreateAgency} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <input
-            className="rounded-lg border px-4 py-3"
-            placeholder="Tên cơ quan"
-            value={agencyForm.Ten}
-            onChange={(e) => setAgencyForm((current) => ({ ...current, Ten: e.target.value }))}
-            required
-          />
-          <input
-            className="rounded-lg border px-4 py-3"
-            placeholder="Địa chỉ"
-            value={agencyForm.DiaChi}
-            onChange={(e) => setAgencyForm((current) => ({ ...current, DiaChi: e.target.value }))}
-            required
-          />
-          <button disabled={agencyLoading} className="rounded-lg bg-emerald-600 px-5 py-3 font-semibold text-white disabled:opacity-60">
-            {agencyLoading ? 'Đang thêm...' : 'Thêm cơ quan'}
-          </button>
-        </form>
-        <div className="mt-6 overflow-hidden rounded-lg border border-slate-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-100 text-slate-700">
-              <tr>
-                <th className="p-3">Mã cơ quan</th>
-                <th className="p-3">Tên cơ quan</th>
-                <th className="p-3">Địa chỉ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {agencies.map((agency) => (
-                <tr key={agency.MaCoQuan} className="border-t">
-                  <td className="p-3">#{agency.MaCoQuan}</td>
-                  <td className="p-3 font-medium">{agency.Ten}</td>
-                  <td className="p-3">{agency.DiaChi}</td>
-                </tr>
-              ))}
-              {agencies.length === 0 && (
-                <tr>
-                  <td className="p-6 text-center text-slate-500" colSpan="3">Chưa có cơ quan</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
+      {/* Thông báo */}
+      {message && (
+        <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 shadow-sm">{message}</div>
+      )}
+
+      {/* ====== TẠO TÀI KHOẢN ====== */}
       <section className="rounded-xl bg-white p-6 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900">Tạo tài khoản người dùng</h3>
         <form onSubmit={handleSubmit} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -322,15 +228,16 @@ export default function UserManagementPage() {
 
           <RoleProfileFields form={form} onChange={updateField} agencies={agencies} />
 
-          <button disabled={loading} className="rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white disabled:opacity-60 md:col-span-3">
+          <button disabled={loading} className="rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60 md:col-span-3">
             {loading ? 'Đang tạo...' : 'Tạo tài khoản'}
           </button>
         </form>
       </section>
 
+      {/* ====== DANH SÁCH NGƯỜI DÙNG ====== */}
       <section className="rounded-xl bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-bold text-slate-900">Danh sách người dùng trong database</h3>
+          <h3 className="text-lg font-bold text-slate-900">Danh sách người dùng</h3>
           <input
             className="w-72 rounded-lg border border-slate-300 px-4 py-2 text-sm"
             placeholder="Tra cứu theo tên, email, SĐT, vai trò..."
@@ -338,7 +245,8 @@ export default function UserManagementPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="mt-6 overflow-hidden rounded-lg border border-slate-200">
+        <p className="mt-1 text-sm text-slate-500">Tổng số: {filteredUsers.length} tài khoản</p>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-slate-700">
               <tr>
@@ -354,18 +262,22 @@ export default function UserManagementPage() {
             </thead>
             <tbody>
               {filteredUsers.map((user) => (
-                <tr key={user.MaTaiKhoan} className="border-t">
+                <tr key={user.MaTaiKhoan} className="border-t hover:bg-slate-50">
                   <td className="p-3">#{user.MaTaiKhoan}</td>
                   <td className="p-3 font-medium">{user.TenNguoiDung}</td>
                   <td className="p-3">{user.Email}</td>
                   <td className="p-3">{user.SDT || '-'}</td>
-                  <td className="p-3">{user.VaiTro}</td>
                   <td className="p-3">
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${user.TrangThai === 'HoatDong' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                      {user.TrangThai}
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      {user.VaiTro}
                     </span>
                   </td>
-                  <td className="p-3">{getProfileSummary(user)}</td>
+                  <td className="p-3">
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${user.TrangThai === 'HoatDong' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {user.TrangThai === 'HoatDong' ? 'Hoạt động' : 'Khóa'}
+                    </span>
+                  </td>
+                  <td className="p-3 text-slate-600">{getProfileSummary(user)}</td>
                   <td className="p-3">
                     <div className="flex gap-2">
                       <button
@@ -388,7 +300,9 @@ export default function UserManagementPage() {
               ))}
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td className="p-6 text-center text-slate-500" colSpan="8">Không có người dùng phù hợp</td>
+                  <td className="p-6 text-center text-slate-500" colSpan="8">
+                    {users.length === 0 ? 'Chưa có người dùng nào' : 'Không tìm thấy kết quả phù hợp'}
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -396,6 +310,7 @@ export default function UserManagementPage() {
         </div>
       </section>
 
+      {/* ====== MODAL SỬA ====== */}
       {editUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <form onSubmit={handleEditSubmit} className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
@@ -404,7 +319,7 @@ export default function UserManagementPage() {
                 <h3 className="text-lg font-bold text-slate-900">Sửa tài khoản #{editUser.MaTaiKhoan}</h3>
                 <p className="mt-1 text-sm text-slate-500">Cập nhật thông tin, vai trò và trạng thái. Để trống mật khẩu nếu không đổi.</p>
               </div>
-              <button type="button" onClick={() => setEditUser(null)} className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">Đóng</button>
+              <button type="button" onClick={() => setEditUser(null)} className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">Đóng</button>
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -425,19 +340,73 @@ export default function UserManagementPage() {
 
             {editForm.VaiTro !== editUser.VaiTro && (
               <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
-                Đổi vai trò từ <b>{editUser.VaiTro}</b> sang <b>{editForm.VaiTro}</b>: hồ sơ vai trò cũ sẽ được thay bằng hồ sơ vai trò mới.
+                ⚠ Đổi vai trò từ <b>{editUser.VaiTro}</b> sang <b>{editForm.VaiTro}</b>: hồ sơ vai trò cũ sẽ được thay bằng hồ sơ vai trò mới.
               </p>
             )}
 
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setEditUser(null)} className="rounded-lg bg-slate-100 px-5 py-3 font-semibold text-slate-700">Hủy</button>
-              <button disabled={editLoading} className="rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white disabled:opacity-60">
+              <button type="button" onClick={() => setEditUser(null)} className="rounded-lg bg-slate-100 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-200">Hủy</button>
+              <button disabled={editLoading} className="rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
                 {editLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </div>
           </form>
         </div>
       )}
+
+      {/* ====== QUẢN LÝ CƠ QUAN (thu gọn) ====== */}
+      <details className="rounded-xl bg-white shadow-sm">
+        <summary className="cursor-pointer px-6 py-4 text-lg font-bold text-slate-900 hover:bg-slate-50 rounded-xl">
+          Quản lý cơ quan chính phủ
+        </summary>
+        <div className="border-t border-slate-100 p-6">
+          <form onSubmit={handleCreateAgency} className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <input
+              className="rounded-lg border px-4 py-3"
+              placeholder="Tên cơ quan"
+              value={agencyForm.Ten}
+              onChange={(e) => setAgencyForm((current) => ({ ...current, Ten: e.target.value }))}
+              required
+            />
+            <input
+              className="rounded-lg border px-4 py-3"
+              placeholder="Địa chỉ"
+              value={agencyForm.DiaChi}
+              onChange={(e) => setAgencyForm((current) => ({ ...current, DiaChi: e.target.value }))}
+              required
+            />
+            <button disabled={agencyLoading} className="rounded-lg bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+              {agencyLoading ? 'Đang thêm...' : 'Thêm cơ quan'}
+            </button>
+          </form>
+          <div className="mt-6 overflow-hidden rounded-lg border border-slate-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-100 text-slate-700">
+                <tr>
+                  <th className="p-3">Mã cơ quan</th>
+                  <th className="p-3">Tên cơ quan</th>
+                  <th className="p-3">Địa chỉ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agencies.map((agency) => (
+                  <tr key={agency.MaCoQuan} className="border-t">
+                    <td className="p-3">#{agency.MaCoQuan}</td>
+                    <td className="p-3 font-medium">{agency.Ten}</td>
+                    <td className="p-3">{agency.DiaChi || '-'}</td>
+                  </tr>
+                ))}
+                {agencies.length === 0 && (
+                  <tr>
+                    <td className="p-6 text-center text-slate-500" colSpan="3">Chưa có cơ quan</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
     </div>
   );
 }

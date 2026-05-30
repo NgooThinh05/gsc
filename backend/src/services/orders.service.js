@@ -3,7 +3,7 @@ import prisma from '../config/prisma.js';
 /**
  * Tiến trình 2.3 - Kiểm tra tính hợp lệ của đơn hàng so với điều khoản hợp đồng.
  * Trả về { valid, reasons[] }. Đơn cần include:
- *  - hopDong: { TrangThai, NgayHetHan, chiTiet[] (MaHangHoa, SoLuongToiDa, SoTienToiDa) }
+ *  - hopDong: { TrangThai, NgayHetHan, chiTiet[] (MaHangHoa, SoTienToiDa) }
  *  - chiTiet: [{ MaHangHoa, SoLuongDat, hangHoa: { Ten, Gia } }]
  */
 export function evaluateOrderCompliance(order) {
@@ -32,10 +32,6 @@ export function evaluateOrderCompliance(order) {
     if (!term) {
       reasons.push(`Hàng hóa "${ten}" không thuộc danh mục hợp đồng`);
       continue;
-    }
-
-    if (detail.SoLuongDat > term.SoLuongToiDa) {
-      reasons.push(`"${ten}" đặt ${detail.SoLuongDat} vượt số lượng tối đa ${term.SoLuongToiDa}`);
     }
 
     // 2.3.3 - Kiểm tra hạn mức chi phí
@@ -76,36 +72,13 @@ export async function syncOrderApprovals() {
 }
 
 export async function createOrder(userId, data) {
-  const { MaHopDong, items } = data;
+  const { items } = data;
 
   if (!Array.isArray(items) || items.length === 0) {
     throw Object.assign(new Error('Đơn hàng phải có ít nhất một sản phẩm'), { statusCode: 400 });
   }
 
   return prisma.$transaction(async (tx) => {
-    const contract = await tx.hopDong.findUnique({
-      where: { MaHopDong: Number(MaHopDong) },
-      include: { chiTiet: { include: { hangHoa: true } } }
-    });
-
-    if (!contract) {
-      throw Object.assign(new Error('Hợp đồng không tồn tại'), { statusCode: 400 });
-    }
-
-    const purchaser = await tx.nhanVienMuaSamCoQuan.findUnique({
-      where: { MaTaiKhoan: userId }
-    });
-
-    if (!purchaser) {
-      throw Object.assign(new Error('Không tìm thấy thông tin cơ quan của nhân viên mua sắm'), { statusCode: 403 });
-    }
-
-    // Phân quyền: chỉ được đặt theo hợp đồng của cơ quan mình (chặn cứng)
-    if (purchaser.MaCoQuan !== contract.MaCoQuan) {
-      throw Object.assign(new Error('Bạn chỉ được đặt hàng theo hợp đồng của cơ quan mình'), { statusCode: 403 });
-    }
-
-    // Lấy giá hàng hóa (cho phép cả mặt hàng ngoài danh mục để bước duyệt phát hiện vi phạm)
     const orderedIds = items.map((item) => Number(item.MaHangHoa));
     const products = await tx.hangHoa.findMany({ where: { MaHangHoa: { in: orderedIds } } });
     const productMap = new Map(products.map((product) => [product.MaHangHoa, product]));
@@ -128,18 +101,11 @@ export async function createOrder(userId, data) {
       return { MaHangHoa, SoLuongDat };
     });
 
-    // 2.3 - So sánh đơn với điều khoản hợp đồng để quyết định trạng thái khởi tạo
-    const compliance = evaluateOrderCompliance({
-      hopDong: contract,
-      chiTiet: detailRows.map((row) => ({ ...row, hangHoa: productMap.get(row.MaHangHoa) }))
-    });
-
     return tx.donDatHang.create({
       data: {
-        MaHopDong: contract.MaHopDong,
         MaTaiKhoan_NVMS: userId,
         TongTien: total,
-        TrangThai: compliance.valid ? 'DaDuyet' : 'ChoDuyet',
+        TrangThai: 'ChoDuyet',
         chiTiet: { create: detailRows }
       },
       include: { chiTiet: { include: { hangHoa: true } }, hopDong: true }
@@ -153,7 +119,7 @@ export async function listOrders(user) {
 
   const where = {};
 
-  if (user?.VaiTro === 'NhanVienMuaSamCoQuan') {
+  if (user?.VaiTro === 'TaiKhoanCoQuan') {
     where.MaTaiKhoan_NVMS = user.MaTaiKhoan;
   }
 

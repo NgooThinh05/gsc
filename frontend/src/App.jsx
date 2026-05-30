@@ -27,7 +27,7 @@ function getDefaultPage(role) {
     Admin: 'Dashboard',
     QuanLy: 'Dashboard',
     NhanVienHopDong: 'Hợp đồng',
-    NhanVienMuaSamCoQuan: 'Tạo đơn hàng',
+    TaiKhoanCoQuan: 'Tạo đơn hàng',
     NhanVienKho: 'Quản lý kho',
     NhanVienThanhToan: 'Hóa đơn'
   };

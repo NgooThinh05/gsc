@@ -3,9 +3,9 @@ import prisma from '../config/prisma.js';
 
 const includeProfiles = {
   nhanVienHopDong: true,
-  nhanVienMuaSamCoQuan: { include: { coQuan: true } },
-  nhanVienThanhToan: true,
-  nhanVienKho: true
+  taiKhoanCoQuan: { include: { coQuan: true } },
+  nhanVienKho: true,
+  quanLy: true
 };
 
 function sanitizeUser(user) {
@@ -17,87 +17,49 @@ function sanitizeUser(user) {
 async function createProfileForRole(tx, MaTaiKhoan, VaiTro, profile = {}) {
   if (VaiTro === 'NhanVienHopDong') {
     await tx.nhanVienHopDong.create({
-      data: {
-        MaTaiKhoan,
-        ChucVu: profile.ChucVu || 'Nhân viên hợp đồng',
-        ChungChi: profile.ChungChi || null,
-        HanMucDuyet: profile.HanMucDuyet || null
-      }
+      data: { MaTaiKhoan }
     });
-  } else if (VaiTro === 'NhanVienMuaSamCoQuan') {
+  } else if (VaiTro === 'TaiKhoanCoQuan') {
     if (!profile.MaCoQuan) {
       throw Object.assign(new Error('Nhân viên mua sắm cần MaCoQuan'), { statusCode: 400 });
     }
-    await tx.nhanVienMuaSamCoQuan.create({
+    await tx.taiKhoanCoQuan.create({
       data: {
         MaTaiKhoan,
-        MaCoQuan: Number(profile.MaCoQuan),
-        BoPhanCongTac: profile.BoPhanCongTac || 'Phòng mua sắm'
-      }
-    });
-  } else if (VaiTro === 'NhanVienThanhToan') {
-    await tx.nhanVienThanhToan.create({
-      data: {
-        MaTaiKhoan,
-        MaSoKeToan: profile.MaSoKeToan || `KT-${MaTaiKhoan}`,
-        HanMucChiTra: profile.HanMucChiTra || null
+        MaCoQuan: Number(profile.MaCoQuan)
       }
     });
   } else if (VaiTro === 'NhanVienKho') {
     await tx.nhanVienKho.create({
-      data: {
-        MaTaiKhoan,
-        KhuVucQuanLy: profile.KhuVucQuanLy || 'Kho chính',
-        CaLam: profile.CaLam || 'Ca hành chính'
-      }
+      data: { MaTaiKhoan }
+    });
+  } else if (VaiTro === 'QuanLy') {
+    await tx.quanLy.create({
+      data: { MaTaiKhoan }
     });
   }
+  // NhanVienThanhToan không có bảng riêng
 }
 
 // Xóa hồ sơ vai trò cũ (dùng deleteMany để an toàn khi không tồn tại).
 async function deleteProfileForRole(tx, MaTaiKhoan, VaiTro) {
   if (VaiTro === 'NhanVienHopDong') await tx.nhanVienHopDong.deleteMany({ where: { MaTaiKhoan } });
-  else if (VaiTro === 'NhanVienMuaSamCoQuan') await tx.nhanVienMuaSamCoQuan.deleteMany({ where: { MaTaiKhoan } });
-  else if (VaiTro === 'NhanVienThanhToan') await tx.nhanVienThanhToan.deleteMany({ where: { MaTaiKhoan } });
+  else if (VaiTro === 'TaiKhoanCoQuan') await tx.taiKhoanCoQuan.deleteMany({ where: { MaTaiKhoan } });
   else if (VaiTro === 'NhanVienKho') await tx.nhanVienKho.deleteMany({ where: { MaTaiKhoan } });
+  else if (VaiTro === 'QuanLy') await tx.quanLy.deleteMany({ where: { MaTaiKhoan } });
 }
 
 // Cập nhật các trường hồ sơ của vai trò hiện tại (chỉ những trường được gửi lên).
 async function updateProfileForRole(tx, MaTaiKhoan, VaiTro, profile = {}) {
-  if (VaiTro === 'NhanVienHopDong') {
-    await tx.nhanVienHopDong.update({
+  if (VaiTro === 'TaiKhoanCoQuan') {
+    await tx.taiKhoanCoQuan.update({
       where: { MaTaiKhoan },
       data: {
-        ...(profile.ChucVu !== undefined ? { ChucVu: profile.ChucVu } : {}),
-        ...(profile.ChungChi !== undefined ? { ChungChi: profile.ChungChi || null } : {}),
-        ...(profile.HanMucDuyet !== undefined ? { HanMucDuyet: profile.HanMucDuyet || null } : {})
-      }
-    });
-  } else if (VaiTro === 'NhanVienMuaSamCoQuan') {
-    await tx.nhanVienMuaSamCoQuan.update({
-      where: { MaTaiKhoan },
-      data: {
-        ...(profile.MaCoQuan !== undefined && profile.MaCoQuan !== '' ? { MaCoQuan: Number(profile.MaCoQuan) } : {}),
-        ...(profile.BoPhanCongTac !== undefined ? { BoPhanCongTac: profile.BoPhanCongTac } : {})
-      }
-    });
-  } else if (VaiTro === 'NhanVienThanhToan') {
-    await tx.nhanVienThanhToan.update({
-      where: { MaTaiKhoan },
-      data: {
-        ...(profile.MaSoKeToan !== undefined ? { MaSoKeToan: profile.MaSoKeToan } : {}),
-        ...(profile.HanMucChiTra !== undefined ? { HanMucChiTra: profile.HanMucChiTra || null } : {})
-      }
-    });
-  } else if (VaiTro === 'NhanVienKho') {
-    await tx.nhanVienKho.update({
-      where: { MaTaiKhoan },
-      data: {
-        ...(profile.KhuVucQuanLy !== undefined ? { KhuVucQuanLy: profile.KhuVucQuanLy } : {}),
-        ...(profile.CaLam !== undefined ? { CaLam: profile.CaLam } : {})
+        ...(profile.MaCoQuan !== undefined && profile.MaCoQuan !== '' ? { MaCoQuan: Number(profile.MaCoQuan) } : {})
       }
     });
   }
+  // Các vai trò khác không có field nào để cập nhật
 }
 
 // 7.5 - Tra cứu người dùng (có thể lọc theo từ khóa tên/email/SĐT)

@@ -32,7 +32,6 @@ export async function createContract(userId, data) {
       chiTiet: {
         create: chiTiet.map((item) => ({
           MaHangHoa: Number(item.MaHangHoa),
-          SoLuongToiDa: Number(item.SoLuongToiDa),
           SoTienToiDa: item.SoTienToiDa
         }))
       }
@@ -59,8 +58,8 @@ export async function listActiveContracts(user) {
 
   const where = {};
 
-  if (user?.VaiTro === 'NhanVienMuaSamCoQuan') {
-    const purchaser = await prisma.nhanVienMuaSamCoQuan.findUnique({
+  if (user?.VaiTro === 'TaiKhoanCoQuan') {
+    const purchaser = await prisma.taiKhoanCoQuan.findUnique({
       where: { MaTaiKhoan: user.MaTaiKhoan }
     });
 

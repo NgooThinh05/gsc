@@ -2,7 +2,7 @@ const menuByRole = {
   Admin: ['Dashboard', 'Quản lý người dùng'],
   QuanLy: ['Dashboard', 'Báo cáo doanh thu', 'Báo cáo kho'],
   NhanVienHopDong: ['Hợp đồng', 'Duyệt đơn hàng'],
-  NhanVienMuaSamCoQuan: ['Tạo đơn hàng', 'Đơn hàng của tôi'],
+  TaiKhoanCoQuan: ['Tạo đơn hàng', 'Đơn hàng của tôi', 'Hợp đồng'],
   NhanVienKho: ['Quản lý kho', 'Giao hàng'],
   NhanVienThanhToan: ['Hóa đơn', 'Thanh toán']
 };
