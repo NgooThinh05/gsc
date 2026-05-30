@@ -27,13 +27,16 @@ export async function getOrder(req, res, next) {
   }
 }
 
-export const closeOrder = async (req, res) => {
-    try {
-        const { orderId } = req.params;
-        // Logic đóng đơn hàng của bạn ở đây...
-        
-        res.status(200).json({ message: 'Đóng đơn hàng thành công!' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
+// Tiến trình 2.4 - Nhân viên hợp đồng xác nhận từ chối đơn hàng (kèm lí do)
+export async function rejectOrder(req, res, next) {
+  try {
+    const order = await ordersService.rejectOrder(
+      req.user.MaTaiKhoan,
+      req.params.orderId,
+      req.body.LiDo
+    );
+    return res.json(order);
+  } catch (error) {
+    return next(error);
+  }
+}

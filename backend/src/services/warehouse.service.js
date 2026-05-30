@@ -11,8 +11,8 @@ export async function approveOrderForWarehouse(orderId, items = []) {
       throw Object.assign(new Error('Không tìm thấy đơn hàng'), { statusCode: 404 });
     }
 
-    if (order.TrangThai !== 'ChoDuyet') {
-      throw Object.assign(new Error('Chỉ xử lý kho cho đơn hàng đang chờ duyệt'), { statusCode: 400 });
+    if (order.TrangThai !== 'DaDuyet') {
+      throw Object.assign(new Error('Chỉ xử lý kho cho đơn hàng đã được duyệt'), { statusCode: 400 });
     }
 
     const deliveryMap = new Map(items.map((item) => [Number(item.MaHangHoa), Number(item.SoLuongGiao)]));

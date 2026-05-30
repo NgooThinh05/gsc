@@ -234,7 +234,7 @@ export default function WarehouseOrderDetailPage() {
                             [detail.MaHangHoa]: event.target.value
                           }))}
                           className="w-32 rounded-lg border border-slate-300 px-3 py-2"
-                          disabled={order.TrangThai !== 'ChoDuyet'}
+                          disabled={order.TrangThai !== 'DaDuyet'}
                         />
                       </td>
                       <td className="p-3">{shortage ? 'Giao thiếu' : 'Đủ hàng'}</td>
