@@ -1,7 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 export async function apiRequest(path, options = {}) {
-  const token = localStorage.getItem('gsc_token');
+  const token = sessionStorage.getItem('gsc_token');
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {

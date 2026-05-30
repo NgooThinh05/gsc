@@ -8,6 +8,9 @@ import CreateOrderPage from './pages/purchasing/CreateOrderPage';
 import MyOrdersPage from './pages/purchasing/MyOrdersPage';
 import DeliveryPage from './pages/delivery/DeliveryPage';
 import WarehouseOrderDetailPage from './pages/warehouse/WarehouseOrderDetailPage';
+import DashboardPage from './pages/manager/DashboardPage';
+import RevenueReportPage from './pages/manager/RevenueReportPage';
+import WarehouseReportPage from './pages/manager/WarehouseReportPage';
 import { useAuthStore } from './store/authStore';
 
 function PlaceholderPage({ title }) {
@@ -33,6 +36,9 @@ function getDefaultPage(role) {
 }
 
 function renderPage(activePage) {
+  if (activePage === 'Dashboard') return <DashboardPage />;
+  if (activePage === 'Báo cáo doanh thu') return <RevenueReportPage />;
+  if (activePage === 'Báo cáo kho') return <WarehouseReportPage />;
   if (activePage === 'Quản lý người dùng') return <UserManagementPage />;
   if (activePage === 'Hợp đồng') return <ContractManagementPage />;
   if (activePage === 'Duyệt đơn hàng') return <OrderReviewPage />;
