@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import Sidebar from './Sidebar';
+import NotificationBell from './NotificationBell';
 
 export default function DashboardLayout({ children, defaultPage }) {
   const { user, logout } = useAuthStore();
@@ -15,9 +16,12 @@ export default function DashboardLayout({ children, defaultPage }) {
         onLogout={logout}
       />
       <main className="flex-1 p-8">
-        <header className="mb-8 rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="text-2xl font-bold text-slate-900">{activePage}</h2>
-          <p className="text-sm text-slate-500">Xin chào, {user?.TenNguoiDung}</p>
+        <header className="mb-8 flex items-center justify-between gap-4 rounded-xl bg-white p-5 shadow-sm">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">{activePage}</h2>
+            <p className="text-sm text-slate-500">Xin chào, {user?.TenNguoiDung}</p>
+          </div>
+          <NotificationBell />
         </header>
         {children(activePage)}
       </main>
