@@ -74,7 +74,11 @@ export default function WarehouseReportPage() {
                     <td className="p-3">{product.Gia.toLocaleString('vi-VN')} đ</td>
                     <td className="p-3">{product.GiaTriTon.toLocaleString('vi-VN')} đ</td>
                     <td className="p-3">{product.ViTriKho || '-'}</td>
-                    <td className="p-3">{product.TrangThai}</td>
+                    <td className="p-3">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${product.TrangThai === 'CoDuong' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                        {product.TrangThai === 'CoDuong' ? 'Còn hàng' : 'Hết hàng'}
+                      </span>
+                    </td>
                   </tr>
                 ))}
                 {report.rows.length === 0 && <tr><td className="p-6 text-center text-slate-500" colSpan="7">Chưa có mặt hàng</td></tr>}
