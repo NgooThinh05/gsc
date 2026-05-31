@@ -3,6 +3,14 @@ import { apiRequest } from '../../api/client';
 import { getTheme, setTheme } from '../../lib/theme';
 import Alert from '../../components/ui/Alert';
 
+const ROLE_LABEL = {
+  Admin: 'Nhân viên IT',
+  QuanLy: 'Quản lý',
+  NhanVienHopDong: 'Nhân viên hợp đồng',
+  TaiKhoanCoQuan: 'Tài khoản cơ quan',
+  NhanVienKho: 'Nhân viên kho',
+};
+
 function Field({ label, value }) {
   return (
     <div className="rounded-lg bg-slate-50 p-4">
@@ -68,9 +76,9 @@ export default function AccountInfoPage() {
 
         {me && (
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Field label="Mã tài khoản" value={`#${me.MaTaiKhoan}`} />
+            <Field label="Mã nhân viên" value={me.MaTaiKhoan} />
             <Field label="Tên người dùng" value={me.TenNguoiDung} />
-            <Field label="Vai trò" value={me.VaiTro} />
+            <Field label="Vai trò" value={ROLE_LABEL[me.VaiTro] ?? me.VaiTro} />
             <Field label="Email" value={me.Email} />
             <Field label="Số điện thoại" value={me.SDT} />
             <Field label="Trạng thái" value={me.TrangThai === 'HoatDong' ? 'Hoạt động' : 'Khóa'} />

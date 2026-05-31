@@ -1,5 +1,6 @@
 import prisma from '../config/prisma.js';
 import { createNotifications } from './notifications.service.js';
+import { emitOrderEvent } from '../realtime/orderEvents.js';
 
 // Sinh mã giao dịch "giả" giống ngân hàng trả về sau khi quét QR.
 function generateTransactionCode() {
@@ -16,6 +17,9 @@ const PAYMENT_LABELS = {
 // Mô phỏng ngân hàng xác nhận đã quét QR: đánh dấu hóa đơn đã thanh toán,
 // sinh mã giao dịch và gửi thông báo cho NV mua sắm, NV hợp đồng và quản lý.
 export async function payInvoice(invoiceId, userId, data = {}) {
+  let orderId = null;
+  let orderStatus = null;
+
   return prisma.$transaction(async (tx) => {
     const invoice = await tx.hoaDonThanhToan.findUnique({
       where: { MaHoaDon: Number(invoiceId) },
@@ -29,9 +33,11 @@ export async function payInvoice(invoiceId, userId, data = {}) {
     }
 
     const order = invoice.donHang;
+    orderId = order.MaDonHang;
+    orderStatus = order.TrangThai;
 
     // Tài khoản cơ quan chỉ được thanh toán hóa đơn của chính đơn mình đặt.
-    if (data.requireOwner && order.MaTaiKhoan_NVMS !== Number(userId)) {
+    if (data.requireOwner && order.MaTaiKhoan_NVMS !== userId) {
       throw Object.assign(new Error('Bạn không có quyền thanh toán hóa đơn này'), { statusCode: 403 });
     }
 
@@ -97,10 +103,18 @@ export async function payInvoice(invoiceId, userId, data = {}) {
     );
 
     return updated;
+  }).then((updated) => {
+    if (orderId !== null) {
+      emitOrderEvent({ type: 'invoice-paid', orderId, status: orderStatus });
+    }
+
+    return updated;
   });
 }
 
-export async function createInvoice(userId, data) {
+export async function createInvoice(data) {
+  let orderId = null;
+
   return prisma.$transaction(async (tx) => {
     const order = await tx.donDatHang.findUnique({
       where: { MaDonHang: Number(data.MaDonHang) },
@@ -131,10 +145,11 @@ export async function createInvoice(userId, data) {
       throw Object.assign(new Error('Không thể lập hóa đơn cho đơn chưa có số lượng giao'), { statusCode: 400 });
     }
 
-    return tx.hoaDonThanhToan.create({
+    orderId = order.MaDonHang;
+
+    const invoice = await tx.hoaDonThanhToan.create({
       data: {
         MaDonHang: order.MaDonHang,
-        MaTaiKhoan_NVTT: userId,
         TongTien: total,
         NgayLap: data.NgayLap ? new Date(data.NgayLap) : new Date(),
         TrangThai: data.TrangThai || 'ChoThanhToan'
@@ -143,6 +158,48 @@ export async function createInvoice(userId, data) {
         donHang: { include: { chiTiet: { include: { hangHoa: true } } } }
       }
     });
+
+    await createNotifications([{
+      MaTaiKhoan: order.MaTaiKhoan_NVMS,
+      NoiDung: `Hóa đơn #${invoice.MaHoaDon} trị giá ${total.toLocaleString('vi-VN')} đ đã được lập cho đơn hàng #${order.MaDonHang}. Vui lòng tiến hành thanh toán.`,
+      Loai: 'HoaDon',
+      MaDonHang: order.MaDonHang,
+      MaHoaDon: invoice.MaHoaDon
+    }], tx);
+
+    return invoice;
+  }).then((invoice) => {
+    if (orderId !== null) {
+      emitOrderEvent({ type: 'invoice-created', orderId, status: 'DaGiao' });
+    }
+
+    return invoice;
+  });
+}
+
+// TaiKhoanCoQuan khai báo thanh toán bằng tiền mặt — lưu phương thức, chờ NV HĐ xác nhận.
+export async function requestCashPayment(invoiceId, userId) {
+  const invoice = await prisma.hoaDonThanhToan.findUnique({
+    where: { MaHoaDon: Number(invoiceId) },
+    include: { donHang: true }
+  });
+
+  if (!invoice) {
+    throw Object.assign(new Error('Không tìm thấy hóa đơn'), { statusCode: 404 });
+  }
+  if (invoice.TrangThai !== 'ChoThanhToan') {
+    throw Object.assign(new Error('Hóa đơn không ở trạng thái chờ thanh toán'), { statusCode: 400 });
+  }
+  if (invoice.donHang.MaTaiKhoan_NVMS !== userId) {
+    throw Object.assign(new Error('Bạn không có quyền thao tác hóa đơn này'), { statusCode: 403 });
+  }
+  if (invoice.PhuongThuc === 'TienMat') {
+    throw Object.assign(new Error('Hóa đơn đã đăng ký thanh toán tiền mặt, đang chờ xác nhận'), { statusCode: 400 });
+  }
+
+  return prisma.hoaDonThanhToan.update({
+    where: { MaHoaDon: Number(invoiceId) },
+    data: { PhuongThuc: 'TienMat' }
   });
 }
 
@@ -161,10 +218,23 @@ export async function listBillableOrders() {
   });
 }
 
-export async function listInvoices() {
+export async function listInvoices(user) {
+  const where = {};
+
+  if (user?.VaiTro === 'TaiKhoanCoQuan') {
+    where.donHang = { MaTaiKhoan_NVMS: user.MaTaiKhoan };
+  }
+
   return prisma.hoaDonThanhToan.findMany({
+    where,
     include: {
-      donHang: { include: { hopDong: { include: { coQuan: true } }, chiTiet: { include: { hangHoa: true } }, giaoHangs: true } }
+      donHang: {
+        include: {
+          hopDong: { include: { coQuan: true } },
+          chiTiet: { include: { hangHoa: true } },
+          giaoHangs: true
+        }
+      }
     },
     orderBy: { NgayLap: 'desc' }
   });

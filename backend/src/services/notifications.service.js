@@ -23,7 +23,7 @@ export async function createNotifications(items, tx = prisma) {
 
 export async function listNotifications(userId) {
   return prisma.thongBao.findMany({
-    where: { MaTaiKhoan: Number(userId) },
+    where: { MaTaiKhoan: userId },
     orderBy: { createdAt: 'desc' },
     take: 50
   });
@@ -31,14 +31,26 @@ export async function listNotifications(userId) {
 
 export async function markAsRead(userId, notificationId) {
   return prisma.thongBao.updateMany({
-    where: { MaThongBao: Number(notificationId), MaTaiKhoan: Number(userId) },
+    where: { MaThongBao: Number(notificationId), MaTaiKhoan: userId },
     data: { DaDoc: true }
   });
 }
 
 export async function markAllAsRead(userId) {
   return prisma.thongBao.updateMany({
-    where: { MaTaiKhoan: Number(userId), DaDoc: false },
+    where: { MaTaiKhoan: userId, DaDoc: false },
     data: { DaDoc: true }
+  });
+}
+
+export async function deleteNotification(userId, notificationId) {
+  return prisma.thongBao.deleteMany({
+    where: { MaThongBao: Number(notificationId), MaTaiKhoan: userId }
+  });
+}
+
+export async function deleteAllRead(userId) {
+  return prisma.thongBao.deleteMany({
+    where: { MaTaiKhoan: userId, DaDoc: true }
   });
 }

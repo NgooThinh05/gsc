@@ -8,7 +8,7 @@ datasource db {
 }
 
 model TaiKhoan {
-  MaTaiKhoan      Int               @id @default(autoincrement())
+  MaTaiKhoan      String            @id
   TenNguoiDung    String            @unique
   SDT             String?           @unique
   Email           String            @unique
@@ -19,7 +19,6 @@ model TaiKhoan {
   updatedAt       DateTime          @updatedAt
   donDatHangs     DonDatHang[]      @relation("DonDatHang_NVMS")
   giaoHangs       GiaoHang[]
-  hoaDons         HoaDonThanhToan[]
   hopDongs        HopDong[]         @relation("HopDong_NVHD")
   nhanVienHopDong NhanVienHopDong?
   nhanVienKho     NhanVienKho?
@@ -32,15 +31,15 @@ model TaiKhoan {
 }
 
 model NhanVienHopDong {
-  MaTaiKhoan Int      @id
+  MaTaiKhoan String   @id
   taiKhoan   TaiKhoan @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade)
 
   @@map("NhanVienHopDong")
 }
 
 model TaiKhoanCoQuan {
-  MaTaiKhoan Int            @id(map: "NhanVienMuaSamCoQuan_pkey")
-  MaCoQuan   Int
+  MaTaiKhoan String         @id(map: "NhanVienMuaSamCoQuan_pkey")
+  MaCoQuan   String         @unique
   coQuan     CoQuanChinhPhu @relation(fields: [MaCoQuan], references: [MaCoQuan], map: "NhanVienMuaSamCoQuan_MaCoQuan_fkey")
   taiKhoan   TaiKhoan       @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade, map: "NhanVienMuaSamCoQuan_MaTaiKhoan_fkey")
 
@@ -48,14 +47,14 @@ model TaiKhoanCoQuan {
 }
 
 model NhanVienKho {
-  MaTaiKhoan Int      @id
+  MaTaiKhoan String   @id
   taiKhoan   TaiKhoan @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade)
 
   @@map("NhanVienKho")
 }
 
 model QuanLy {
-  MaTaiKhoan Int      @id(map: "MaTaiKhoan_Quanly")
+  MaTaiKhoan String   @id(map: "MaTaiKhoan_Quanly")
   taiKhoan   TaiKhoan @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: NoAction, onUpdate: NoAction, map: "Quanly")
 
   @@index([MaTaiKhoan], map: "AuditLog_MaTaiKhoan_idx")
@@ -63,7 +62,7 @@ model QuanLy {
 }
 
 model CoQuanChinhPhu {
-  MaCoQuan       Int              @id @default(autoincrement())
+  MaCoQuan       String           @id
   Ten            String
   DiaChi         String?
   createdAt      DateTime         @default(now())
@@ -80,8 +79,10 @@ model HopDong {
   NgayHetHan      DateTime
   TrangThai       TrangThaiHopDong @default(HieuLuc)
   DieuKhoan       String?
-  MaTaiKhoan_NVHD Int
-  MaCoQuan        Int
+  TenNguoiKy      String?
+  ChucVuNguoiKy   String?
+  MaTaiKhoan_NVHD String
+  MaCoQuan        String
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   chiTiet         ChiTietHopDong[]
@@ -113,7 +114,7 @@ model DonDatHang {
   TongTien        Decimal           @db.Decimal(18, 2)
   LuuY            String?
   MaHopDong       Int?
-  MaTaiKhoan_NVMS Int
+  MaTaiKhoan_NVMS String
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   chiTiet         ChiTietDonHang[]
@@ -165,7 +166,7 @@ model GiaoHang {
   TrangThai        TrangThaiGiaoHang @default(DangDongGoi)
   GhiChu           String?
   MaDonHang        Int
-  MaTaiKhoan_NVKho Int
+  MaTaiKhoan_NVKho String
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   donHang          DonDatHang        @relation(fields: [MaDonHang], references: [MaDonHang])
@@ -177,23 +178,20 @@ model GiaoHang {
 }
 
 model HoaDonThanhToan {
-  MaHoaDon          Int             @id @default(autoincrement())
-  NgayLap           DateTime        @default(now())
-  TongTien          Decimal         @db.Decimal(18, 2)
-  TrangThai         TrangThaiHoaDon @default(ChoThanhToan)
-  GhiChu            String?
-  PhuongThuc        String?
-  MaGiaoDich        String?
-  NgayThanhToan     DateTime?
-  MaDonHang         Int
-  MaTaiKhoan_NVTT   Int
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  donHang           DonDatHang      @relation(fields: [MaDonHang], references: [MaDonHang])
-  nhanVienThanhToan TaiKhoan        @relation(fields: [MaTaiKhoan_NVTT], references: [MaTaiKhoan])
+  MaHoaDon      Int             @id @default(autoincrement())
+  NgayLap       DateTime        @default(now())
+  TongTien      Decimal         @db.Decimal(18, 2)
+  TrangThai     TrangThaiHoaDon @default(ChoThanhToan)
+  GhiChu        String?
+  PhuongThuc    String?
+  MaGiaoDich    String?
+  NgayThanhToan DateTime?
+  MaDonHang     Int
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  donHang       DonDatHang      @relation(fields: [MaDonHang], references: [MaDonHang])
 
   @@index([MaDonHang])
-  @@index([MaTaiKhoan_NVTT])
   @@map("HoaDonThanhToan")
 }
 
@@ -202,7 +200,7 @@ model ThuTuChoi {
   LiDo            String
   NgayGui         DateTime   @default(now())
   MaDonHang       Int
-  MaTaiKhoan_NVHD Int
+  MaTaiKhoan_NVHD String
   createdAt       DateTime   @default(now())
   donHang         DonDatHang @relation(fields: [MaDonHang], references: [MaDonHang], onDelete: Cascade)
   nhanVienHopDong TaiKhoan   @relation(fields: [MaTaiKhoan_NVHD], references: [MaTaiKhoan])
@@ -216,7 +214,7 @@ model ThongBao {
   NoiDung    String
   Loai       String?
   DaDoc      Boolean  @default(false)
-  MaTaiKhoan Int
+  MaTaiKhoan String
   MaDonHang  Int?
   MaHoaDon   Int?
   createdAt  DateTime @default(now())
@@ -229,8 +227,7 @@ model ThongBao {
 enum VaiTro {
   Admin
   NhanVienHopDong
-  TaiKhoanCoQuan    @map("NhanVienMuaSamCoQuan")
-  NhanVienThanhToan
+  TaiKhoanCoQuan  @map("NhanVienMuaSamCoQuan")
   NhanVienKho
   QuanLy
 }
@@ -251,6 +248,7 @@ enum TrangThaiDonHang {
   DaDuyet
   SanSangGiao
   GiaoMotPhan
+  DangGiao
   DaGiao
   Huy
 }

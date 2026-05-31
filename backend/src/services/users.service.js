@@ -1,6 +1,32 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../config/prisma.js';
 
+const ROLE_PREFIX = {
+  Admin: 'IT',
+  QuanLy: 'QL',
+  NhanVienHopDong: 'NVHD',
+  NhanVienKho: 'NVK'
+  // TaiKhoanCoQuan dùng MaCoQuan làm MaTaiKhoan (1:1 với cơ quan)
+};
+
+async function generateEmployeeCode(tx, role) {
+  const prefix = ROLE_PREFIX[role];
+  if (!prefix) throw Object.assign(new Error('Vai trò không hợp lệ'), { statusCode: 400 });
+
+  const existing = await tx.taiKhoan.findMany({
+    where: { MaTaiKhoan: { startsWith: prefix } },
+    select: { MaTaiKhoan: true }
+  });
+
+  let maxNum = 0;
+  for (const { MaTaiKhoan } of existing) {
+    const num = parseInt(MaTaiKhoan.slice(prefix.length), 10);
+    if (!isNaN(num) && num > maxNum) maxNum = num;
+  }
+
+  return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
+}
+
 const includeProfiles = {
   nhanVienHopDong: true,
   taiKhoanCoQuan: { include: { coQuan: true } },
@@ -21,12 +47,16 @@ async function createProfileForRole(tx, MaTaiKhoan, VaiTro, profile = {}) {
     });
   } else if (VaiTro === 'TaiKhoanCoQuan') {
     if (!profile.MaCoQuan) {
-      throw Object.assign(new Error('Nhân viên mua sắm cần MaCoQuan'), { statusCode: 400 });
+      throw Object.assign(new Error('Tài khoản cơ quan cần MaCoQuan'), { statusCode: 400 });
+    }
+    const existing = await tx.taiKhoanCoQuan.findUnique({ where: { MaCoQuan: profile.MaCoQuan } });
+    if (existing) {
+      throw Object.assign(new Error('Cơ quan này đã có tài khoản, mỗi cơ quan chỉ được có một tài khoản'), { statusCode: 409 });
     }
     await tx.taiKhoanCoQuan.create({
       data: {
         MaTaiKhoan,
-        MaCoQuan: Number(profile.MaCoQuan)
+        MaCoQuan: profile.MaCoQuan
       }
     });
   } else if (VaiTro === 'NhanVienKho') {
@@ -55,7 +85,7 @@ async function updateProfileForRole(tx, MaTaiKhoan, VaiTro, profile = {}) {
     await tx.taiKhoanCoQuan.update({
       where: { MaTaiKhoan },
       data: {
-        ...(profile.MaCoQuan !== undefined && profile.MaCoQuan !== '' ? { MaCoQuan: Number(profile.MaCoQuan) } : {})
+        ...(profile.MaCoQuan !== undefined && profile.MaCoQuan !== '' ? { MaCoQuan: profile.MaCoQuan } : {})
       }
     });
   }
@@ -93,10 +123,21 @@ export async function createUser(data) {
   }
 
   const hashedPassword = await bcrypt.hash(MatKhau, 10);
-
   const user = await prisma.$transaction(async (tx) => {
+    // TaiKhoanCoQuan: dùng MaCoQuan làm mã tài khoản (quan hệ 1:1 với cơ quan)
+    let MaTaiKhoan;
+    if (VaiTro === 'TaiKhoanCoQuan') {
+      if (!profile.MaCoQuan) {
+        throw Object.assign(new Error('Tài khoản cơ quan cần MaCoQuan'), { statusCode: 400 });
+      }
+      MaTaiKhoan = profile.MaCoQuan;
+    } else {
+      MaTaiKhoan = await generateEmployeeCode(tx, VaiTro);
+    }
+
     const account = await tx.taiKhoan.create({
       data: {
+        MaTaiKhoan,
         TenNguoiDung,
         SDT,
         Email,
@@ -119,14 +160,14 @@ export async function createUser(data) {
 
 // 7.3 - Sửa thông tin người dùng & 7.4 - Cập nhật vai trò người dùng
 export async function updateUser(userId, data, currentUserId) {
-  const MaTaiKhoan = Number(userId);
+  const MaTaiKhoan = userId;
 
   const existing = await prisma.taiKhoan.findUnique({ where: { MaTaiKhoan } });
   if (!existing) {
     throw Object.assign(new Error('Không tìm thấy tài khoản'), { statusCode: 404 });
   }
 
-  const isSelf = MaTaiKhoan === Number(currentUserId);
+  const isSelf = MaTaiKhoan === currentUserId;
   const roleChanged = data.VaiTro && data.VaiTro !== existing.VaiTro;
 
   // Tránh admin tự khóa hoặc tự đổi vai trò của mình -> mất quyền truy cập
@@ -167,9 +208,9 @@ export async function updateUser(userId, data, currentUserId) {
 
 // 7.2 - Xóa người dùng
 export async function deleteUser(userId, currentUserId) {
-  const MaTaiKhoan = Number(userId);
+  const MaTaiKhoan = userId;
 
-  if (MaTaiKhoan === Number(currentUserId)) {
+  if (MaTaiKhoan === currentUserId) {
     throw Object.assign(new Error('Admin không thể tự xóa tài khoản đang đăng nhập'), { statusCode: 400 });
   }
 
@@ -203,15 +244,22 @@ export async function listGovernmentAgencies() {
 }
 
 export async function createGovernmentAgency(data) {
-  const { Ten, DiaChi } = data;
+  const { Ten, DiaChi, MaCoQuan } = data;
 
   if (!Ten || !DiaChi) {
     throw Object.assign(new Error('Tên cơ quan và địa chỉ là bắt buộc'), { statusCode: 400 });
   }
 
-  await prisma.$executeRaw`SELECT setval(pg_get_serial_sequence('"CoQuanChinhPhu"', 'MaCoQuan'), COALESCE((SELECT MAX("MaCoQuan") FROM "CoQuanChinhPhu"), 1), true)`;
+  if (MaCoQuan) {
+    const existing = await prisma.coQuanChinhPhu.findUnique({ where: { MaCoQuan } });
+    if (existing) {
+      throw Object.assign(new Error(`Mã cơ quan ${MaCoQuan} đã tồn tại`), { statusCode: 400 });
+    }
+  } else {
+    throw Object.assign(new Error('Mã cơ quan là bắt buộc'), { statusCode: 400 });
+  }
 
   return prisma.coQuanChinhPhu.create({
-    data: { Ten, DiaChi }
+    data: { MaCoQuan, Ten, DiaChi }
   });
 }

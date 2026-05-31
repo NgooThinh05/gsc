@@ -1,4 +1,6 @@
 import prisma from '../config/prisma.js';
+import { emitOrderEvent } from '../realtime/orderEvents.js';
+import { createNotifications } from './notifications.service.js';
 
 export async function approveOrderForWarehouse(orderId, items = []) {
   return prisma.$transaction(async (tx) => {
@@ -56,7 +58,7 @@ export async function approveOrderForWarehouse(orderId, items = []) {
       });
     }
 
-    return tx.donDatHang.update({
+    const updatedOrder = await tx.donDatHang.update({
       where: { MaDonHang: Number(orderId) },
       data: { TrangThai: isPartial ? 'GiaoMotPhan' : 'SanSangGiao' },
       include: {
@@ -66,5 +68,16 @@ export async function approveOrderForWarehouse(orderId, items = []) {
         hoaDons: true
       }
     });
+
+    const statusLabel = updatedOrder.TrangThai === 'SanSangGiao' ? 'sẵn sàng giao' : 'giao một phần';
+    await createNotifications([{
+      MaTaiKhoan: updatedOrder.MaTaiKhoan_NVMS,
+      NoiDung: `Đơn hàng #${updatedOrder.MaDonHang} đã được kho xử lý và ${statusLabel}.`,
+      Loai: 'SanSangGiao',
+      MaDonHang: updatedOrder.MaDonHang
+    }], tx);
+
+    emitOrderEvent({ type: 'warehouse-processed', orderId: updatedOrder.MaDonHang, status: updatedOrder.TrangThai });
+    return updatedOrder;
   });
 }

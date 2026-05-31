@@ -8,5 +8,8 @@
     "dev:frontend": "npm run dev --prefix frontend",
     "prisma:validate": "npm run prisma:validate --prefix backend",
     "prisma:generate": "npm run prisma:generate --prefix backend"
+  },
+  "dependencies": {
+    "pdfmake": "^0.3.9"
   }
 }

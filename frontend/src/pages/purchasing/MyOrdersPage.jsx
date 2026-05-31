@@ -2,14 +2,27 @@ import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { apiRequest } from '../../api/client';
 import Alert from '../../components/ui/Alert';
+import { useOrderUpdates } from '../../lib/useOrderUpdates';
 
 const statusClasses = {
-  ChoDuyet: 'bg-yellow-100 text-yellow-800',
-  DaDuyet: 'bg-blue-100 text-blue-800',
+  ChoDuyet:    'bg-yellow-100 text-yellow-800',
+  DaDuyet:     'bg-blue-100 text-blue-800',
   SanSangGiao: 'bg-emerald-100 text-emerald-800',
   GiaoMotPhan: 'bg-orange-100 text-orange-800',
-  DaGiao: 'bg-green-100 text-green-800',
-  Huy: 'bg-red-100 text-red-800'
+  DangGiao:    'bg-sky-100 text-sky-800',
+  DaGiao:      'bg-green-100 text-green-800',
+  Huy:         'bg-red-100 text-red-800'
+};
+
+const ORDER_LABEL = {
+  ChoDuyet: 'Chờ duyệt', DaDuyet: 'Đã duyệt', SanSangGiao: 'Sẵn sàng giao',
+  GiaoMotPhan: 'Giao một phần', DangGiao: 'Đang giao', DaGiao: 'Đã giao', Huy: 'Đã hủy'
+};
+const DELIVERY_LABEL = {
+  DangDongGoi: 'Đang đóng gói', DangGiao: 'Đang giao', DaGiao: 'Đã giao', ThatBai: 'Thất bại'
+};
+const INVOICE_LABEL = {
+  ChoThanhToan: 'Chờ thanh toán', DaThanhToan: 'Đã thanh toán', QuaHan: 'Quá hạn', Huy: 'Đã hủy'
 };
 
 // Thời gian "ngân hàng" tự xác nhận sau khi quét QR (mô phỏng).
@@ -47,6 +60,10 @@ export default function MyOrdersPage() {
   useEffect(() => {
     loadOrders().catch((error) => setErrorMsg(error.message));
   }, []);
+
+  useOrderUpdates(() => {
+    loadOrders().catch((error) => setErrorMsg(error.message));
+  });
 
   async function runPayment(order, method) {
     const invoice = order.hoaDons?.[0];
@@ -122,7 +139,31 @@ export default function MyOrdersPage() {
     ? `VIETQR|BANK=VCB|ACC=0123456789|NAME=CTY GSC|AMOUNT=${paymentAmount}|ADDINFO=DH${paymentOrder.MaDonHang}-HD${paymentInvoice?.MaHoaDon ?? ''}`
     : '';
 
+  const stats = {
+    total: orders.length,
+    pending: orders.filter((o) => o.TrangThai === 'ChoDuyet').length,
+    active: orders.filter((o) => ['DaDuyet','SanSangGiao','GiaoMotPhan','DangGiao'].includes(o.TrangThai)).length,
+    done: orders.filter((o) => o.TrangThai === 'DaGiao').length,
+    unpaid: orders.filter((o) => o.hoaDons?.some((inv) => inv.TrangThai === 'ChoThanhToan')).length,
+  };
+
   return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {[
+          { label: 'Tổng đơn', value: stats.total, color: 'text-slate-900' },
+          { label: 'Chờ duyệt', value: stats.pending, color: 'text-amber-600' },
+          { label: 'Đang xử lý', value: stats.active, color: 'text-blue-600' },
+          { label: 'Đã giao', value: stats.done, color: 'text-emerald-600' },
+          { label: 'Chờ thanh toán', value: stats.unpaid, color: 'text-red-600' },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-slate-500">{s.label}</p>
+            <p className={`mt-1 text-2xl font-bold ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
     <section className="rounded-xl bg-white p-6 shadow-sm">
       <h3 className="text-lg font-bold text-slate-900">Đơn hàng của tôi</h3>
       <p className="mt-1 text-sm text-slate-500">Theo dõi trạng thái duyệt, xuất kho, giao thiếu/giao đủ và hóa đơn của các đơn đã đặt.</p>
@@ -137,6 +178,7 @@ export default function MyOrdersPage() {
               <th className="p-3">Hợp đồng</th>
               <th className="p-3">Cơ quan</th>
               <th className="p-3">Trạng thái</th>
+              <th className="p-3">Lí do từ chối</th>
               <th className="p-3">SL giao/đặt</th>
               <th className="p-3">Tổng gốc</th>
               <th className="p-3">Giao hàng</th>
@@ -156,13 +198,23 @@ export default function MyOrdersPage() {
                   <td className="p-3">{order.hopDong?.coQuan?.Ten || '-'}</td>
                   <td className="p-3">
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[order.TrangThai] || 'bg-slate-100 text-slate-700'}`}>
-                      {order.TrangThai}
+                      {ORDER_LABEL[order.TrangThai] ?? order.TrangThai}
                     </span>
+                  </td>
+
+                  <td className="p-3 text-sm text-red-700">
+                    {order.TrangThai === 'Huy' && order.ThuTuChoi && order.ThuTuChoi.length > 0 ? (
+                      <ul className="list-disc pl-4">
+                        {order.ThuTuChoi.map((t) => <li key={t.MaThuTuChoi}>{t.LiDo}</li>)}
+                      </ul>
+                    ) : (
+                      '-'
+                    )}
                   </td>
                   <td className="p-3">{getFulfillmentText(order)}</td>
                   <td className="p-3">{Number(order.TongTien).toLocaleString('vi-VN')} đ</td>
-                  <td className="p-3">{order.giaoHangs?.[0]?.TrangThai || 'Chưa tạo phiếu'}</td>
-                  <td className="p-3">{invoice?.TrangThai || 'Chưa lập'}</td>
+                  <td className="p-3">{order.giaoHangs?.[0]?.TrangThai ? (DELIVERY_LABEL[order.giaoHangs[0].TrangThai] ?? order.giaoHangs[0].TrangThai) : 'Chưa tạo phiếu'}</td>
+                  <td className="p-3">{invoice?.TrangThai ? (INVOICE_LABEL[invoice.TrangThai] ?? invoice.TrangThai) : 'Chưa lập'}</td>
                   <td className="p-3">
                     {paid ? (
                       <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
@@ -313,5 +365,6 @@ export default function MyOrdersPage() {
         ))}
       </div>
     </section>
+    </div>
   );
 }

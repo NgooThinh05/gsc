@@ -1,4 +1,6 @@
 import prisma from '../config/prisma.js';
+import { emitOrderEvent } from '../realtime/orderEvents.js';
+import { createNotifications } from './notifications.service.js';
 
 /**
  * Tiến trình 2.3 - Kiểm tra tính hợp lệ của đơn hàng so với điều khoản hợp đồng.
@@ -68,6 +70,20 @@ export async function syncOrderApprovals() {
       where: { MaDonHang: { in: compliantIds } },
       data: { TrangThai: 'DaDuyet' }
     });
+
+    const approvedOrders = pending.filter((o) => compliantIds.includes(o.MaDonHang));
+    await createNotifications(
+      approvedOrders.map((o) => ({
+        MaTaiKhoan: o.MaTaiKhoan_NVMS,
+        NoiDung: `Đơn hàng #${o.MaDonHang} của bạn đã được duyệt tự động.`,
+        Loai: 'DaDuyet',
+        MaDonHang: o.MaDonHang
+      }))
+    );
+
+    for (const orderId of compliantIds) {
+      emitOrderEvent({ type: 'approved', orderId, status: 'DaDuyet' });
+    }
   }
 }
 
@@ -129,21 +145,44 @@ export async function createOrder(user, data) {
       chiTiet: detailRows.map((row) => ({ ...row, hangHoa: productMap.get(row.MaHangHoa) }))
     });
 
-    return tx.donDatHang.create({
+    const initialStatus = compliance.valid ? 'DaDuyet' : 'ChoDuyet';
+
+    const order = await tx.donDatHang.create({
       data: {
         MaHopDong: contract.MaHopDong,
         MaTaiKhoan_NVMS: user.MaTaiKhoan,
         TongTien: total,
-        TrangThai: compliance.valid ? 'DaDuyet' : 'ChoDuyet',
+        TrangThai: initialStatus,
         chiTiet: { create: detailRows }
       },
       include: { chiTiet: { include: { hangHoa: true } }, hopDong: { include: { coQuan: true } } }
     });
+
+    const notifications = [{
+      MaTaiKhoan: contract.MaTaiKhoan_NVHD,
+      NoiDung: `Đơn hàng mới #${order.MaDonHang} từ ${contract.coQuan?.Ten || 'cơ quan'} vừa được tạo, cần xem xét.`,
+      Loai: 'DatHang',
+      MaDonHang: order.MaDonHang
+    }];
+
+    if (initialStatus === 'DaDuyet') {
+      notifications.push({
+        MaTaiKhoan: user.MaTaiKhoan,
+        NoiDung: `Đơn hàng #${order.MaDonHang} của bạn đã được duyệt tự động vì hợp lệ với điều khoản hợp đồng.`,
+        Loai: 'DaDuyet',
+        MaDonHang: order.MaDonHang
+      });
+    }
+
+    await createNotifications(notifications, tx);
+
+    emitOrderEvent({ type: 'created', orderId: order.MaDonHang, status: order.TrangThai });
+    return order;
   });
 }
 
 export async function listOrders(user) {
-  // Tự động duyệt các đơn đã tuân thủ trước khi trả danh sách
+  // Đồng bộ lại các đơn hợp lệ đang chờ duyệt để chúng tự chuyển sang 'DaDuyet'.
   await syncOrderApprovals();
 
   const where = {};
@@ -224,6 +263,16 @@ export async function rejectOrder(userId, orderId, reason) {
       }
     });
 
+    // Tạo thông báo gửi về cho tài khoản mua sắm (khách hàng) kèm liên kết đến đơn
+    await createNotifications([
+      {
+        MaTaiKhoan: order.MaTaiKhoan_NVMS,
+        NoiDung: `Đơn hàng #${order.MaDonHang} đã bị từ chối: ${LiDo}`,
+        Loai: 'TuChoi',
+        MaDonHang: order.MaDonHang
+      }
+    ], tx);
+
     // 2.4.4 - Cập nhật trạng thái đơn hàng sang Huy (vi phạm / bị từ chối)
     return tx.donDatHang.update({
       where: { MaDonHang: order.MaDonHang },
@@ -233,7 +282,56 @@ export async function rejectOrder(userId, orderId, reason) {
         chiTiet: { include: { hangHoa: true } },
         ThuTuChoi: true
       }
+    }).then((updatedOrder) => {
+      emitOrderEvent({ type: 'rejected', orderId: updatedOrder.MaDonHang, status: updatedOrder.TrangThai });
+      return updatedOrder;
     });
+  });
+}
+
+// Nhân viên hợp đồng duyệt thủ công một đơn đang ở trạng thái 'ChoDuyet'
+export async function approveOrderByContract(userId, orderId) {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.donDatHang.findUnique({
+      where: { MaDonHang: Number(orderId) },
+      include: { hopDong: true, chiTiet: { include: { hangHoa: true } } }
+    });
+
+    if (!order) {
+      throw Object.assign(new Error('Không tìm thấy đơn hàng'), { statusCode: 404 });
+    }
+
+    if (order.TrangThai !== 'ChoDuyet') {
+      throw Object.assign(new Error('Chỉ có thể duyệt các đơn đang ở trạng thái ChoDuyet'), { statusCode: 400 });
+    }
+
+    if (!order.hopDong) {
+      throw Object.assign(new Error('Đơn hàng không gắn với hợp đồng, không thể duyệt'), { statusCode: 400 });
+    }
+
+    // Chỉ cho phép nhân viên hợp đồng phụ trách hợp đồng này duyệt
+    if (String(order.hopDong.MaTaiKhoan_NVHD) !== String(userId)) {
+      throw Object.assign(new Error('Bạn không có quyền duyệt đơn này'), { statusCode: 403 });
+    }
+
+    const updatedOrder = await tx.donDatHang.update({
+      where: { MaDonHang: Number(orderId) },
+      data: { TrangThai: 'DaDuyet' },
+      include: {
+        hopDong: { include: { coQuan: true } },
+        chiTiet: { include: { hangHoa: true } }
+      }
+    });
+
+    await createNotifications([{
+      MaTaiKhoan: updatedOrder.MaTaiKhoan_NVMS,
+      NoiDung: `Đơn hàng #${updatedOrder.MaDonHang} của bạn đã được nhân viên hợp đồng duyệt.`,
+      Loai: 'DaDuyet',
+      MaDonHang: updatedOrder.MaDonHang
+    }], tx);
+
+    emitOrderEvent({ type: 'approved', orderId: updatedOrder.MaDonHang, status: updatedOrder.TrangThai });
+    return updatedOrder;
   });
 }
 

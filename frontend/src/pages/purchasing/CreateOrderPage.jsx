@@ -29,6 +29,12 @@ export default function CreateOrderPage() {
     [contracts, selectedContractId]
   );
 
+  const contractProducts = useMemo(() => {
+    if (!selectedContract) return [];
+    const allowedIds = new Set((selectedContract.chiTiet || []).map((detail) => detail.MaHangHoa));
+    return products.filter((product) => allowedIds.has(product.MaHangHoa));
+  }, [products, selectedContract]);
+
   // Bản đồ hạn mức tiền theo hàng hóa của hợp đồng đang chọn (để hiển thị hướng dẫn)
   const contractLimits = useMemo(() => {
     const map = new Map();
@@ -71,7 +77,7 @@ export default function CreateOrderPage() {
       });
       setItems([]);
       setSelectedContractId('');
-      setAlert({ msg: 'Tạo đơn hàng thành công — đơn hợp lệ sẽ tự được duyệt, đơn vi phạm chờ nhân viên hợp đồng xử lý', type: 'success' });
+        setAlert({ msg: 'Tạo đơn hàng thành công — đơn hợp lệ sẽ được tự động duyệt, đơn vi phạm sẽ chờ nhân viên hợp đồng xử lý', type: 'success' });
     } catch (error) {
       setAlert({ msg: error.message, type: 'error' });
     }
@@ -98,7 +104,10 @@ export default function CreateOrderPage() {
             <select
               className="mt-1 w-full rounded-lg border border-slate-300 px-4 py-3"
               value={selectedContractId}
-              onChange={(event) => setSelectedContractId(event.target.value)}
+              onChange={(event) => {
+                setSelectedContractId(event.target.value);
+                setItems([]);
+              }}
               required
             >
               <option value="">Chọn hợp đồng</option>
@@ -111,46 +120,49 @@ export default function CreateOrderPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-slate-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-100 text-slate-700">
-              <tr>
-                <th className="p-3">Hàng hóa</th>
-                <th className="p-3">Giá</th>
-                <th className="p-3">Hạn mức HĐ</th>
-                <th className="p-3">Số lượng đặt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => {
-                const inContract = !selectedContract || contractLimits.has(product.MaHangHoa);
-                const limit = contractLimits.get(product.MaHangHoa);
-                return (
-                  <tr key={product.MaHangHoa} className={`border-t ${selectedContract && !inContract ? 'bg-slate-50 text-slate-400' : ''}`}>
-                    <td className="p-3 font-medium">{product.Ten}</td>
-                    <td className="p-3">{Number(product.Gia).toLocaleString('vi-VN')} đ</td>
-                    <td className="p-3">
-                      {!selectedContract ? '-' : inContract ? `${limit.toLocaleString('vi-VN')} đ` : 'Ngoài hợp đồng'}
-                    </td>
-                    <td className="p-3">
-                      <input
-                        type="number"
-                        min="0"
-                        value={getQuantity(product.MaHangHoa) || ''}
-                        placeholder="0"
-                        onChange={(event) => updateQuantity(product.MaHangHoa, event.target.value)}
-                        className="w-36 rounded-lg border border-slate-300 px-3 py-2"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-              {products.length === 0 && (
-                <tr><td className="p-6 text-center text-slate-500" colSpan="4">Không có hàng hóa</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {selectedContract ? (
+          <div className="overflow-hidden rounded-lg border border-slate-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-100 text-slate-700">
+                <tr>
+                  <th className="p-3">Hàng hóa</th>
+                  <th className="p-3">Giá</th>
+                  <th className="p-3">Hạn mức HĐ</th>
+                  <th className="p-3">Số lượng đặt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {contractProducts.map((product) => {
+                  const limit = contractLimits.get(product.MaHangHoa);
+                  return (
+                    <tr key={product.MaHangHoa} className="border-t">
+                      <td className="p-3 font-medium">{product.Ten}</td>
+                      <td className="p-3">{Number(product.Gia).toLocaleString('vi-VN')} đ</td>
+                      <td className="p-3">{limit ? `${limit.toLocaleString('vi-VN')} đ` : '-'}</td>
+                      <td className="p-3">
+                        <input
+                          type="number"
+                          min="0"
+                          value={getQuantity(product.MaHangHoa) || ''}
+                          placeholder="0"
+                          onChange={(event) => updateQuantity(product.MaHangHoa, event.target.value)}
+                          className="w-36 rounded-lg border border-slate-300 px-3 py-2"
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+                {contractProducts.length === 0 && (
+                  <tr><td className="p-6 text-center text-slate-500" colSpan="4">Hợp đồng này chưa có hàng hóa nào</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-slate-500">
+            Vui lòng chọn hợp đồng để hiển thị hàng hóa thuộc hợp đồng đó.
+          </div>
+        )}
         <button className="rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700">
           Gửi đơn hàng
         </button>

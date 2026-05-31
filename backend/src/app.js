@@ -10,6 +10,7 @@ import dashboardRoutes from './routes/dashboard.routes.js';
 import usersRoutes from './routes/users.routes.js';
 import productsRoutes from './routes/products.routes.js';
 import notificationsRoutes from './routes/notifications.routes.js';
+import eventsRoutes from './routes/events.routes.js';
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/events', eventsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Không tìm thấy API' });

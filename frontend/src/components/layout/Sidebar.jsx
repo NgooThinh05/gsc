@@ -1,13 +1,21 @@
+import { useState } from 'react';
+
 const menuByRole = {
   Admin: ['Thông tin tài khoản', 'Dashboard', 'Quản lý người dùng'],
-  QuanLy: ['Thông tin tài khoản', 'Dashboard', 'Báo cáo doanh thu', 'Báo cáo kho', 'Hóa đơn đã thanh toán'],
-  NhanVienHopDong: ['Thông tin tài khoản', 'Hợp đồng', 'Duyệt đơn hàng'],
-  TaiKhoanCoQuan: ['Thông tin tài khoản', 'Tạo đơn hàng', 'Đơn hàng của tôi', 'Hợp đồng'],
-  NhanVienKho: ['Thông tin tài khoản', 'Quản lý kho', 'Giao hàng'],
-  NhanVienThanhToan: ['Thông tin tài khoản', 'Hóa đơn', 'Thanh toán']
+  QuanLy: ['Thông tin tài khoản', 'Dashboard', 'Báo cáo doanh thu', 'Báo cáo kho', 'Hóa đơn', 'Thư từ chối'],
+  NhanVienHopDong: ['Thông tin tài khoản', 'Hợp đồng', 'Duyệt đơn hàng', 'Hóa đơn'],
+  TaiKhoanCoQuan: ['Thông tin tài khoản', 'Tạo đơn hàng', 'Đơn hàng của tôi', 'Hợp đồng', 'Thanh toán'],
+  NhanVienKho: ['Thông tin tài khoản', 'Quản lý kho', 'Giao hàng', 'Lập hóa đơn'],
 };
 
-// Đường dẫn icon (Heroicons outline) cho từng mục menu
+const ROLE_LABEL = {
+  Admin: 'Nhân viên IT',
+  QuanLy: 'Quản lý',
+  NhanVienHopDong: 'Nhân viên hợp đồng',
+  TaiKhoanCoQuan: 'Tài khoản cơ quan',
+  NhanVienKho: 'Nhân viên kho',
+};
+
 const iconPaths = {
   'Dashboard': 'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z',
   'Quản lý người dùng': 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z',
@@ -22,11 +30,14 @@ const iconPaths = {
   'Giao hàng': 'M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12',
   'Hóa đơn': 'M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0c1.1.128 1.907 1.077 1.907 2.185ZM9.75 9h.008v.008H9.75V9Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm4.125 4.5h.008v.008h-.008V13.5Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z',
   'Thanh toán': 'M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z',
-  'Hóa đơn đã thanh toán': 'M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z'
+  'Hóa đơn đã thanh toán': 'M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z',
+  'Thư từ chối': 'M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636',
 };
 
 const defaultIconPath = 'M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z';
 const logoutIconPath = 'M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9';
+const chevronLeftPath = 'M15.75 19.5 8.25 12l7.5-7.5';
+const chevronRightPath = 'M8.25 4.5l7.5 7.5-7.5 7.5';
 
 function Icon({ path }) {
   return (
@@ -45,40 +56,114 @@ function Icon({ path }) {
 }
 
 export default function Sidebar({ role, activePage, onSelect, onLogout }) {
+  const [collapsed, setCollapsed] = useState(false);
   const items = menuByRole[role] || [];
 
   return (
-    <aside className="sticky top-0 flex h-screen w-72 flex-col bg-slate-900 p-6 text-white">
-      <div>
-        <h1 className="text-xl font-bold">GSC Procurement</h1>
-        <p className="mt-1 text-sm text-slate-300">Vai trò: {role}</p>
+    <aside
+      className={`sticky top-0 flex h-screen flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out ${
+        collapsed ? 'w-[68px]' : 'w-60'
+      }`}
+    >
+      {/* Brand header */}
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-700/60 px-3">
+        {!collapsed && (
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-xs font-bold text-white">
+              G
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold leading-tight text-white">GSC Procurement</p>
+              <p className="truncate text-[11px] text-slate-400">{ROLE_LABEL[role] ?? role}</p>
+            </div>
+          </div>
+        )}
+        {collapsed && (
+          <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-xs font-bold text-white">
+            G
+          </div>
+        )}
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={() => setCollapsed(true)}
+            className="ml-1 shrink-0 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+            title="Thu gọn"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d={chevronLeftPath} />
+            </svg>
+          </button>
+        )}
       </div>
 
-      <nav className="mt-8 flex-1 space-y-2 overflow-y-auto">
-        {items.map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => onSelect(item)}
-            className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
-              activePage === item ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-800'
-            }`}
-          >
-            <Icon path={iconPaths[item] || defaultIconPath} />
-            <span>{item}</span>
-          </button>
-        ))}
-      </nav>
-
-      <div className="mt-4 border-t border-slate-700 pt-4">
+      {/* Expand button when collapsed */}
+      {collapsed && (
         <button
           type="button"
-          onClick={onLogout}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700"
+          onClick={() => setCollapsed(false)}
+          className="mx-auto mt-3 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+          title="Mở rộng"
         >
-          <Icon path={logoutIconPath} />
-          <span>Đăng xuất</span>
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d={chevronRightPath} />
+          </svg>
         </button>
+      )}
+
+      {/* Navigation */}
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
+        {items.map((item) => {
+          const isActive = activePage === item;
+          return (
+            <div key={item} className="group relative">
+              <button
+                type="button"
+                onClick={() => onSelect(item)}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  collapsed ? 'justify-center' : ''
+                } ${
+                  isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <Icon path={iconPaths[item] ?? defaultIconPath} />
+                {!collapsed && <span className="truncate">{item}</span>}
+              </button>
+
+              {/* Tooltip khi thu gọn */}
+              {collapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2.5 -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                  {item}
+                  <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-800" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+
+      {/* Footer — logout */}
+      <div className="shrink-0 border-t border-slate-700/60 px-2 py-3">
+        <div className="group relative">
+          <button
+            type="button"
+            onClick={onLogout}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 transition hover:bg-red-500/20 hover:text-red-400 ${
+              collapsed ? 'justify-center' : ''
+            }`}
+          >
+            <Icon path={logoutIconPath} />
+            {!collapsed && <span>Đăng xuất</span>}
+          </button>
+          {collapsed && (
+            <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2.5 -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+              Đăng xuất
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-800" />
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

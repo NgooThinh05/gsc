@@ -41,7 +41,7 @@ export async function login({ identifier, password }) {
 // Thông tin tài khoản hiện tại (kèm cơ quan nếu là TaiKhoanCoQuan)
 export async function getCurrentUser(userId) {
   const user = await prisma.taiKhoan.findUnique({
-    where: { MaTaiKhoan: Number(userId) },
+    where: { MaTaiKhoan: userId },
     include: {
       nhanVienHopDong: true,
       taiKhoanCoQuan: { include: { coQuan: true } },
@@ -68,7 +68,7 @@ export async function changePassword(userId, { oldPassword, newPassword }) {
     throw Object.assign(new Error('Mật khẩu mới phải có ít nhất 6 ký tự'), { statusCode: 400 });
   }
 
-  const account = await prisma.taiKhoan.findUnique({ where: { MaTaiKhoan: Number(userId) } });
+  const account = await prisma.taiKhoan.findUnique({ where: { MaTaiKhoan: userId } });
   if (!account) {
     throw Object.assign(new Error('Không tìm thấy tài khoản'), { statusCode: 404 });
   }

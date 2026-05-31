@@ -52,19 +52,58 @@ export default function RevenueReportPage() {
   function exportCSV() {
     if (!report) return;
 
-    const headers = ['Mã hóa đơn,Mã đơn hàng,Cơ quan,Ngày lập,Tổng tiền,Trạng thái'];
-    const rows = report.rows.map((r) =>
-      [
-        r.MaHoaDon,
-        r.MaDonHang,
-        `"${r.coQuan}"`,
-        new Date(r.NgayLap).toLocaleDateString('vi-VN'),
-        r.TongTien,
-        r.TrangThai
-      ].join(',')
-    );
+    const STATUS_LABEL = {
+      ChoThanhToan: 'Chờ thanh toán', DaThanhToan: 'Đã thanh toán',
+      QuaHan: 'Quá hạn', Huy: 'Đã hủy'
+    };
+    const PT_LABEL = { ChuyenKhoan: 'Chuyển khoản (QR)', TienMat: 'Tiền mặt' };
+    const s = report.summary;
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '-';
+    const fmtMoney = (n) => Number(n).toLocaleString('vi-VN');
 
-    const csvContent = [...headers, ...rows].join('\n');
+    const lines = [
+      '=== TỔNG HỢP ===',
+      `Tổng số hóa đơn,${s.invoiceCount}`,
+      `Tổng doanh thu (đ),${s.totalRevenue}`,
+      `Đã thanh toán (đ),${s.paidRevenue}`,
+      `Chờ thanh toán (đ),${s.pendingRevenue}`,
+      `Quá hạn (đ),${s.overdueRevenue}`,
+      `Số HĐ quá hạn,${s.overdueInvoiceCount}`,
+      `Đã hủy (đ),${s.cancelledRevenue}`,
+      `Số HĐ đã hủy,${s.cancelledInvoiceCount}`,
+      `Tỷ lệ thanh toán đúng hạn,${s.onTimePaymentRate}%`,
+      '',
+      '=== DOANH THU THEO THÁNG ===',
+      'Tháng,Doanh thu (đ)',
+      ...report.byMonth.map((r) => `${r.Thang},${r.TongTien}`),
+      '',
+      '=== DOANH THU THEO CƠ QUAN ===',
+      'Cơ quan,Số HĐ,Đã thanh toán,Doanh thu (đ)',
+      ...report.byAgency.map((r) => `"${r.Ten}",${r.SoLuongHoaDon},${r.SoLuongDaThanhToan},${r.TongTien}`),
+      '',
+      '=== DOANH THU THEO HỢP ĐỒNG ===',
+      'Hợp đồng,Số HĐ,Doanh thu (đ)',
+      ...report.byContract.map((r) => `"${r.TenHopDong}",${r.SoLuongHoaDon},${r.TongTien}`),
+      '',
+      '=== CHI TIẾT HÓA ĐƠN ===',
+      'Mã HĐ,Mã đơn,Hợp đồng,Cơ quan,Ngày lập,Tổng tiền (đ),H.thức TT,Mã giao dịch,Ngày TT,Trạng thái',
+      ...report.rows.map((r) =>
+        [
+          r.MaHoaDon,
+          r.MaDonHang,
+          r.MaHopDong ? `HĐ#${r.MaHopDong}` : '-',
+          `"${r.coQuan}"`,
+          fmtDate(r.NgayLap),
+          r.TongTien,
+          PT_LABEL[r.PhuongThuc] || '-',
+          r.MaGiaoDich || '-',
+          fmtDate(r.NgayThanhToan),
+          STATUS_LABEL[r.TrangThai] || r.TrangThai
+        ].join(',')
+      )
+    ];
+
+    const csvContent = lines.join('\n');
     const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -342,9 +381,13 @@ export default function RevenueReportPage() {
                 <tr>
                   <th className="p-3">Mã HĐ</th>
                   <th className="p-3">Mã đơn</th>
+                  <th className="p-3">Hợp đồng</th>
                   <th className="p-3">Cơ quan</th>
                   <th className="p-3">Ngày lập</th>
                   <th className="p-3 text-right">Tổng tiền</th>
+                  <th className="p-3">H.thức TT</th>
+                  <th className="p-3">Mã giao dịch</th>
+                  <th className="p-3">Ngày TT</th>
                   <th className="p-3">Trạng thái</th>
                 </tr>
               </thead>
@@ -353,22 +396,32 @@ export default function RevenueReportPage() {
                   <tr key={row.MaHoaDon} className="border-t hover:bg-slate-50">
                     <td className="p-3 font-medium">#{row.MaHoaDon}</td>
                     <td className="p-3">#{row.MaDonHang}</td>
+                    <td className="p-3 text-slate-500">{row.MaHopDong ? `#${row.MaHopDong}` : '-'}</td>
                     <td className="p-3">{row.coQuan}</td>
                     <td className="p-3">{new Date(row.NgayLap).toLocaleDateString('vi-VN')}</td>
                     <td className="p-3 text-right">{row.TongTien.toLocaleString('vi-VN')} đ</td>
                     <td className="p-3">
+                      {row.PhuongThuc ? (
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${row.PhuongThuc === 'TienMat' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {row.PhuongThuc === 'TienMat' ? 'Tiền mặt' : 'QR'}
+                        </span>
+                      ) : <span className="text-slate-400">—</span>}
+                    </td>
+                    <td className="p-3 font-mono text-xs text-slate-500">{row.MaGiaoDich || '—'}</td>
+                    <td className="p-3 text-slate-500">{row.NgayThanhToan ? new Date(row.NgayThanhToan).toLocaleDateString('vi-VN') : '—'}</td>
+                    <td className="p-3">
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[row.TrangThai] || 'bg-slate-100 text-slate-700'}`}>
-                        {row.TrangThai === 'ChoThanhToan' && 'Chờ thanh toán'}
-                        {row.TrangThai === 'DaThanhToan' && 'Đã thanh toán'}
-                        {row.TrangThai === 'QuaHan' && 'Quá hạn'}
-                        {row.TrangThai === 'Huy' && 'Đã hủy'}
-                        {!['ChoThanhToan', 'DaThanhToan', 'QuaHan', 'Huy'].includes(row.TrangThai) && row.TrangThai}
+                        {row.TrangThai === 'ChoThanhToan' ? 'Chờ thanh toán'
+                          : row.TrangThai === 'DaThanhToan' ? 'Đã thanh toán'
+                          : row.TrangThai === 'QuaHan' ? 'Quá hạn'
+                          : row.TrangThai === 'Huy' ? 'Đã hủy'
+                          : row.TrangThai}
                       </span>
                     </td>
                   </tr>
                 ))}
                 {report.rows.length === 0 && (
-                  <tr><td className="p-6 text-center text-slate-500" colSpan="6">Không có hóa đơn trong khoảng thời gian này</td></tr>
+                  <tr><td className="p-6 text-center text-slate-500" colSpan="10">Không có hóa đơn trong khoảng thời gian này</td></tr>
                 )}
               </tbody>
             </table>

@@ -1,8 +1,15 @@
 import jwt from 'jsonwebtoken';
 
-export function authenticateToken(req, res, next) {
+export function getAccessToken(req) {
   const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const queryToken = typeof req.query?.token === 'string' ? req.query.token : null;
+
+  return headerToken || queryToken;
+}
+
+export function authenticateToken(req, res, next) {
+  const token = getAccessToken(req);
 
   if (!token) {
     return res.status(401).json({ message: 'Thiếu access token' });

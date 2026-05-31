@@ -26,3 +26,14 @@ export async function extendContract(req, res, next) {
     return next(error);
   }
 }
+
+export async function adjustContract(req, res, next) {
+  try {
+    const data = req.body; // may contain NgayHetHan and/or chiTiet array
+    const contract = await contractsService.updateContractTerms(req.params.id, data);
+    return res.json(contract);
+  } catch (error) {
+    return next(error);
+  }
+}
+

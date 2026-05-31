@@ -6,9 +6,11 @@ import ContractManagementPage from './pages/contracts/ContractManagementPage';
 import OrderReviewPage from './pages/contracts/OrderReviewPage';
 import CreateOrderPage from './pages/purchasing/CreateOrderPage';
 import MyOrdersPage from './pages/purchasing/MyOrdersPage';
+import PaymentPage from './pages/purchasing/PaymentPage';
 import DeliveryPage from './pages/delivery/DeliveryPage';
 import WarehouseOrderDetailPage from './pages/warehouse/WarehouseOrderDetailPage';
 import DashboardPage from './pages/manager/DashboardPage';
+import RejectionLettersPage from './pages/manager/RejectionLettersPage';
 import RevenueReportPage from './pages/manager/RevenueReportPage';
 import WarehouseReportPage from './pages/manager/WarehouseReportPage';
 import PaidInvoicesPage from './pages/manager/PaidInvoicesPage';
@@ -31,7 +33,6 @@ function getDefaultPage(role) {
     NhanVienHopDong: 'Hợp đồng',
     TaiKhoanCoQuan: 'Tạo đơn hàng',
     NhanVienKho: 'Quản lý kho',
-    NhanVienThanhToan: 'Hóa đơn'
   };
 
   return defaults[role] || 'Dashboard';
@@ -51,6 +52,9 @@ function renderPage(activePage) {
   if (activePage === 'Quản lý kho') return <WarehouseOrderDetailPage />;
   if (activePage === 'Giao hàng') return <DeliveryPage />;
   if (activePage === 'Hóa đơn') return <InvoiceListPage />;
+  if (activePage === 'Lập hóa đơn') return <InvoiceListPage />;
+  if (activePage === 'Thanh toán') return <PaymentPage />;
+  if (activePage === 'Thư từ chối') return <RejectionLettersPage />;
   return <PlaceholderPage title={activePage} />;
 }
 

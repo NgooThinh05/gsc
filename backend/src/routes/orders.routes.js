@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createOrder, getOrder, listOrders, rejectOrder } from '../controllers/orders.controller.js';
+import { createOrder, getOrder, listOrders, rejectOrder, approveOrder } from '../controllers/orders.controller.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { verifyRole } from '../middleware/verifyRole.js';
 
@@ -10,5 +10,6 @@ router.get('/', authenticateToken, verifyRole('NhanVienHopDong', 'TaiKhoanCoQuan
 router.get('/:id', authenticateToken, verifyRole('NhanVienHopDong', 'TaiKhoanCoQuan', 'NhanVienKho', 'NhanVienThanhToan', 'QuanLy'), getOrder);
 router.post('/', authenticateToken, verifyRole('TaiKhoanCoQuan'), createOrder);
 router.post('/:orderId/reject', authenticateToken, verifyRole('NhanVienHopDong'), rejectOrder);
+router.post('/:orderId/approve', authenticateToken, verifyRole('NhanVienHopDong'), approveOrder);
 
 export default router;

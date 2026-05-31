@@ -1,5 +1,23 @@
 import * as notificationsService from '../services/notifications.service.js';
 
+export async function deleteNotification(req, res, next) {
+  try {
+    await notificationsService.deleteNotification(req.user.MaTaiKhoan, req.params.id);
+    return res.json({ message: 'Đã xóa thông báo' });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function deleteAllRead(req, res, next) {
+  try {
+    await notificationsService.deleteAllRead(req.user.MaTaiKhoan);
+    return res.json({ message: 'Đã xóa tất cả thông báo đã đọc' });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function listNotifications(req, res, next) {
   try {
     const notifications = await notificationsService.listNotifications(req.user.MaTaiKhoan);

@@ -32,7 +32,7 @@ export async function getRevenueReport({ from, to, agencyId } = {}) {
   if (agencyId) {
     where.donHang = {
       ...(where.donHang || {}),
-      hopDong: { MaCoQuan: parseInt(agencyId, 10) }
+      hopDong: { MaCoQuan: agencyId }
     };
   }
 
@@ -110,9 +110,13 @@ export async function getRevenueReport({ from, to, agencyId } = {}) {
   const rows = invoices.map((invoice) => ({
     MaHoaDon: invoice.MaHoaDon,
     MaDonHang: invoice.MaDonHang,
+    MaHopDong: invoice.donHang?.hopDong?.MaHopDong || null,
     NgayLap: invoice.NgayLap,
+    NgayThanhToan: invoice.NgayThanhToan || null,
     TongTien: Number(invoice.TongTien),
     TrangThai: invoice.TrangThai,
+    PhuongThuc: invoice.PhuongThuc || null,
+    MaGiaoDich: invoice.MaGiaoDich || null,
     coQuan: invoice.donHang?.hopDong?.coQuan?.Ten || '-'
   }));
 

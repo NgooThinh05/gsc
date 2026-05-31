@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -139,6 +139,11 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const intervalRef = useRef(null);
 
+  // Chart filters
+  const [monthRange, setMonthRange] = useState(12);   // số tháng gần nhất (0 = tất cả)
+  const [topNAgency, setTopNAgency] = useState(5);    // top N cơ quan (0 = tất cả)
+  const [invSort, setInvSort] = useState('desc');     // desc = nhiều nhất, asc = ít nhất
+
   const fetchData = useCallback((isInitial = false) => {
     if (isInitial) setLoading(true);
     else setRefreshing(true);
@@ -168,24 +173,42 @@ export default function DashboardPage() {
     return () => clearInterval(intervalRef.current);
   }, [fetchData]);
 
-  const invoiceStatusData = revenue
+  const filteredByMonth = useMemo(() => {
+    if (!revenue?.byMonth) return [];
+    const all = revenue.byMonth;
+    return monthRange > 0 ? all.slice(-monthRange) : all;
+  }, [revenue, monthRange]);
+
+  const filteredTopAgencies = useMemo(() => {
+    if (!revenue?.topAgencies) return [];
+    const list = topNAgency > 0 ? revenue.topAgencies.slice(0, topNAgency) : revenue.topAgencies;
+    return list.map((a) => ({
+      name: a.Ten.length > 22 ? a.Ten.slice(0, 20) + '…' : a.Ten,
+      TongTien: a.TongTien,
+    }));
+  }, [revenue, topNAgency]);
+
+  const filteredInventory = useMemo(() => {
+    if (!inventory?.rows) return [];
+    const sorted = [...inventory.rows].sort((a, b) =>
+      invSort === 'desc'
+        ? b.SoLuongTrongKho - a.SoLuongTrongKho
+        : a.SoLuongTrongKho - b.SoLuongTrongKho
+    );
+    return sorted.slice(0, 10).map((r) => ({
+      name: r.Ten.length > 18 ? r.Ten.slice(0, 16) + '…' : r.Ten,
+      soluong: r.SoLuongTrongKho,
+    }));
+  }, [inventory, invSort]);
+
+  const invoiceStatusData = useMemo(() => revenue
     ? [
         { name: 'Đã thanh toán', value: revenue.summary.paidRevenue },
         { name: 'Chờ thanh toán', value: revenue.summary.pendingRevenue },
         { name: 'Quá hạn', value: revenue.summary.overdueRevenue },
         { name: 'Đã huỷ', value: revenue.summary.cancelledRevenue },
       ].filter((d) => d.value > 0)
-    : [];
-
-  const topInventory = inventory
-    ? [...inventory.rows]
-        .sort((a, b) => b.SoLuongTrongKho - a.SoLuongTrongKho)
-        .slice(0, 10)
-        .map((r) => ({
-          name: r.Ten.length > 18 ? r.Ten.slice(0, 16) + '…' : r.Ten,
-          soluong: r.SoLuongTrongKho,
-        }))
-    : [];
+    : [], [revenue]);
 
   return (
     <div className="space-y-6">
@@ -255,14 +278,60 @@ export default function DashboardPage() {
         </div>
       ) : revenue && inventory && (
         <>
+          {/* Filter bar */}
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+            </svg>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bộ lọc biểu đồ</span>
+            <div className="ml-1 flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-slate-500">Khoảng thời gian:</label>
+                <select
+                  value={monthRange}
+                  onChange={(e) => setMonthRange(Number(e.target.value))}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={3}>3 tháng gần nhất</option>
+                  <option value={6}>6 tháng gần nhất</option>
+                  <option value={12}>12 tháng gần nhất</option>
+                  <option value={0}>Tất cả</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-slate-500">Top cơ quan:</label>
+                <select
+                  value={topNAgency}
+                  onChange={(e) => setTopNAgency(Number(e.target.value))}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={5}>Top 5</option>
+                  <option value={10}>Top 10</option>
+                  <option value={0}>Tất cả</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-slate-500">Sắp xếp kho:</label>
+                <select
+                  value={invSort}
+                  onChange={(e) => setInvSort(e.target.value)}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="desc">Tồn nhiều nhất</option>
+                  <option value="asc">Tồn ít nhất</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           {/* Row 1 */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <SectionCard title="Doanh thu theo tháng">
-              {revenue.byMonth.length === 0 ? (
+            <SectionCard title={`Doanh thu theo tháng${monthRange > 0 ? ` (${monthRange} tháng gần nhất)` : ''}`}>
+              {filteredByMonth.length === 0 ? (
                 <p className="py-14 text-center text-sm text-slate-400">Chưa có dữ liệu</p>
               ) : (
                 <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={revenue.byMonth} margin={{ top: 4, right: 12, left: 4, bottom: 4 }}>
+                  <BarChart data={filteredByMonth} margin={{ top: 4, right: 12, left: 4, bottom: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="Thang" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={vndShort} tick={{ fontSize: 11 }} width={52} />
@@ -302,17 +371,14 @@ export default function DashboardPage() {
 
           {/* Row 2 */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <SectionCard title="Top cơ quan theo doanh thu">
-              {revenue.topAgencies.length === 0 ? (
+            <SectionCard title={`Top ${topNAgency > 0 ? topNAgency : 'tất cả'} cơ quan theo doanh thu`}>
+              {filteredTopAgencies.length === 0 ? (
                 <p className="py-14 text-center text-sm text-slate-400">Chưa có dữ liệu</p>
               ) : (
-                <ResponsiveContainer width="100%" height={240}>
+                <ResponsiveContainer width="100%" height={Math.max(240, filteredTopAgencies.length * 36 + 40)}>
                   <BarChart
                     layout="vertical"
-                    data={revenue.topAgencies.map((a) => ({
-                      name: a.Ten.length > 22 ? a.Ten.slice(0, 20) + '…' : a.Ten,
-                      TongTien: a.TongTien,
-                    }))}
+                    data={filteredTopAgencies}
                     margin={{ top: 4, right: 12, left: 4, bottom: 4 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -325,14 +391,14 @@ export default function DashboardPage() {
               )}
             </SectionCard>
 
-            <SectionCard title="Tồn kho top 10 hàng hóa">
-              {topInventory.length === 0 ? (
+            <SectionCard title={`Tồn kho top 10 (${invSort === 'desc' ? 'nhiều nhất' : 'ít nhất'})`}>
+              {filteredInventory.length === 0 ? (
                 <p className="py-14 text-center text-sm text-slate-400">Chưa có dữ liệu</p>
               ) : (
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart
                     layout="vertical"
-                    data={topInventory}
+                    data={filteredInventory}
                     margin={{ top: 4, right: 12, left: 4, bottom: 4 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -346,11 +412,11 @@ export default function DashboardPage() {
             </SectionCard>
           </div>
 
-          {/* Row 3 — Line chart (chỉ khi có ≥ 2 tháng) */}
-          {revenue.byMonth.length > 1 && (
-            <SectionCard title="Xu hướng doanh thu theo thời gian">
+          {/* Row 3 — Line chart */}
+          {filteredByMonth.length > 1 && (
+            <SectionCard title={`Xu hướng doanh thu${monthRange > 0 ? ` (${monthRange} tháng gần nhất)` : ''}`}>
               <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={revenue.byMonth} margin={{ top: 4, right: 20, left: 4, bottom: 4 }}>
+                <LineChart data={filteredByMonth} margin={{ top: 4, right: 20, left: 4, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="Thang" tick={{ fontSize: 11 }} />
                   <YAxis tickFormatter={vndShort} tick={{ fontSize: 11 }} width={52} />

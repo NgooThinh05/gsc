@@ -40,3 +40,13 @@ export async function rejectOrder(req, res, next) {
     return next(error);
   }
 }
+
+// Nhân viên hợp đồng duyệt đơn hàng
+export async function approveOrder(req, res, next) {
+  try {
+    const order = await ordersService.approveOrderByContract(req.user.MaTaiKhoan, req.params.orderId);
+    return res.json(order);
+  } catch (error) {
+    return next(error);
+  }
+}

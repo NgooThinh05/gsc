@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../../api/client';
 import Alert from '../../components/ui/Alert';
+import { useOrderUpdates } from '../../lib/useOrderUpdates';
 
 const statusClasses = {
-  ChoDuyet: 'bg-yellow-100 text-yellow-800',
-  DaDuyet: 'bg-blue-100 text-blue-800',
+  ChoDuyet:    'bg-yellow-100 text-yellow-800',
+  DaDuyet:     'bg-blue-100 text-blue-800',
   SanSangGiao: 'bg-emerald-100 text-emerald-800',
   GiaoMotPhan: 'bg-orange-100 text-orange-800',
-  DaGiao: 'bg-green-100 text-green-800',
-  Huy: 'bg-red-100 text-red-800'
+  DangGiao:    'bg-sky-100 text-sky-800',
+  DaGiao:      'bg-green-100 text-green-800',
+  Huy:         'bg-red-100 text-red-800'
+};
+
+const ORDER_LABEL = {
+  ChoDuyet: 'Chờ duyệt', DaDuyet: 'Đã duyệt', SanSangGiao: 'Sẵn sàng giao',
+  GiaoMotPhan: 'Giao một phần', DangGiao: 'Đang giao', DaGiao: 'Đã giao', Huy: 'Đã hủy'
 };
 
 // Đơn hàng mà nhân viên hợp đồng còn có thể xác nhận từ chối (tiến trình 2.4)
@@ -30,6 +37,10 @@ export default function OrderReviewPage() {
   useEffect(() => {
     loadOrders();
   }, []);
+
+  useOrderUpdates(() => {
+    loadOrders();
+  });
 
   async function handleReject(event) {
     event.preventDefault();
@@ -53,11 +64,50 @@ export default function OrderReviewPage() {
     }
   }
 
+  async function handleApprove(order) {
+    setSubmitting(true);
+    setError('');
+    setMessage('');
+    try {
+      await apiRequest(`/orders/${order.MaDonHang}/approve`, { method: 'POST' });
+      setMessage(`Đã duyệt đơn #${order.MaDonHang}.`);
+      await loadOrders();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const stats = {
+    total: orders.length,
+    pending: orders.filter((o) => o.TrangThai === 'ChoDuyet').length,
+    violation: orders.filter((o) => o.danhGia && !o.danhGia.valid).length,
+    rejected: orders.filter((o) => o.ThuTuChoi?.length > 0).length,
+    approved: orders.filter((o) => ['DaDuyet','SanSangGiao','GiaoMotPhan','DangGiao','DaGiao'].includes(o.TrangThai)).length,
+  };
+
   return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {[
+          { label: 'Tổng đơn', value: stats.total, color: 'text-slate-900' },
+          { label: 'Chờ duyệt', value: stats.pending, color: 'text-amber-600' },
+          { label: 'Vi phạm', value: stats.violation, color: 'text-red-600' },
+          { label: 'Đã từ chối', value: stats.rejected, color: 'text-red-700' },
+          { label: 'Đã duyệt', value: stats.approved, color: 'text-emerald-600' },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-slate-500">{s.label}</p>
+            <p className={`mt-1 text-2xl font-bold ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
     <section className="rounded-xl bg-white p-6 shadow-sm">
       <h3 className="text-lg font-bold text-slate-900">Duyệt đơn hàng</h3>
       <p className="mt-1 text-sm text-slate-500">
-        Theo dõi đơn đặt hàng và xác nhận từ chối đơn vi phạm (sai hợp đồng, vượt số lượng hoặc hạn mức chi phí).
+        Theo dõi đơn đặt hàng và xử lý các đơn vi phạm (sai hợp đồng, vượt số lượng hoặc hạn mức chi phí).
       </p>
 
       {message && <Alert variant="success" className="mt-4">{message}</Alert>}
@@ -82,9 +132,11 @@ export default function OrderReviewPage() {
               const rejection = order.ThuTuChoi?.[0];
               const rejectable = REJECTABLE.includes(order.TrangThai);
               const violation = order.danhGia && !order.danhGia.valid;
-              // Chỉ khi có lí do từ chối (đơn vi phạm và còn ở bước duyệt) thì nút mới bấm được
+              // Chỉ khi có lí do từ chối (đơn vi phạm và còn ở bước duyệt) thì nút Từ chối mới bấm được
               const canReject = rejectable && violation && !rejection;
               const reasons = rejection ? [rejection.LiDo] : (rejectable && violation ? order.danhGia.reasons : []);
+              // Nút Duyệt chỉ khả dụng khi đơn đang ở trạng thái 'ChoDuyet' và hợp lệ theo điều khoản
+              const canApprove = order.TrangThai === 'ChoDuyet' && order.danhGia?.valid;
               return (
                 <tr key={order.MaDonHang} className="border-t align-top">
                   <td className="p-3 font-medium">#{order.MaDonHang}</td>
@@ -93,7 +145,7 @@ export default function OrderReviewPage() {
                   <td className="p-3">{order.hopDong?.coQuan?.Ten || '-'}</td>
                   <td className="p-3">
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[order.TrangThai] || 'bg-slate-100 text-slate-700'}`}>
-                      {order.TrangThai}
+                      {ORDER_LABEL[order.TrangThai] ?? order.TrangThai}
                     </span>
                   </td>
                   <td className="p-3">{Number(order.TongTien).toLocaleString('vi-VN')} đ</td>
@@ -105,19 +157,29 @@ export default function OrderReviewPage() {
                     ) : '-'}
                   </td>
                   <td className="p-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRejectOrder(order);
-                        setReason(order.danhGia?.reasons?.join('; ') || '');
-                        setMessage('');
-                        setError('');
-                      }}
-                      disabled={!canReject}
-                      className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-slate-300 disabled:cursor-not-allowed"
-                    >
-                      Từ chối
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRejectOrder(order);
+                          setReason(order.danhGia?.reasons?.join('; ') || '');
+                          setMessage('');
+                          setError('');
+                        }}
+                        disabled={!canReject}
+                        className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-slate-300 disabled:cursor-not-allowed"
+                      >
+                        Từ chối
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApprove(order)}
+                        disabled={submitting || !canApprove}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-slate-300 disabled:cursor-not-allowed"
+                      >
+                        Duyệt
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -195,5 +257,6 @@ export default function OrderReviewPage() {
         </div>
       )}
     </section>
+    </div>
   );
 }

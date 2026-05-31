@@ -1,8 +1,8 @@
 import prisma from '../config/prisma.js';
 
 export async function createContract(user, data) {
-  const { NgayKy, NgayHetHan, chiTiet } = data;
-  let MaCoQuan = data.MaCoQuan;
+  const { NgayKy, NgayHetHan, chiTiet, TenNguoiKy, ChucVuNguoiKy, DieuKhoan, MaCoQuan: contractAgency } = data;
+  let MaCoQuan = contractAgency;
 
   // Tài khoản cơ quan: hợp đồng luôn gắn với đúng cơ quan của chính họ (1 tài khoản = 1 cơ quan)
   if (user.VaiTro === 'TaiKhoanCoQuan') {
@@ -38,9 +38,12 @@ export async function createContract(user, data) {
     data: {
       NgayKy: new Date(NgayKy),
       NgayHetHan: new Date(NgayHetHan),
-      MaCoQuan: Number(MaCoQuan),
+      MaCoQuan,
       MaTaiKhoan_NVHD: user.MaTaiKhoan,
       TrangThai: data.TrangThai || 'HieuLuc',
+      TenNguoiKy: TenNguoiKy || null,
+      ChucVuNguoiKy: ChucVuNguoiKy || null,
+      DieuKhoan: DieuKhoan || null,
       chiTiet: {
         create: chiTiet.map((item) => ({
           MaHangHoa: Number(item.MaHangHoa),
@@ -125,3 +128,54 @@ export async function extendContract(contractId, data) {
     }
   });
 }
+
+export async function updateContractTerms(contractId, data) {
+  const { NgayHetHan, DieuKhoan, chiTiet } = data;
+
+  const contract = await prisma.hopDong.findUnique({ where: { MaHopDong: Number(contractId) } });
+  if (!contract) throw Object.assign(new Error('Không tìm thấy hợp đồng'), { statusCode: 404 });
+
+  return prisma.$transaction(async (tx) => {
+    let updated = null;
+
+    if (NgayHetHan) {
+      if (new Date(NgayHetHan) <= contract.NgayKy) {
+        throw Object.assign(new Error('Ngày hết hạn mới phải sau ngày ký'), { statusCode: 400 });
+      }
+      updated = await tx.hopDong.update({ where: { MaHopDong: Number(contractId) }, data: { NgayHetHan: new Date(NgayHetHan), TrangThai: 'HieuLuc' } });
+    }
+
+    if (DieuKhoan !== undefined) {
+      updated = await tx.hopDong.update({
+        where: { MaHopDong: Number(contractId) },
+        data: { DieuKhoan: DieuKhoan || null }
+      });
+    }
+
+    if (Array.isArray(chiTiet) && chiTiet.length > 0) {
+      const newMaHangHoas = [];
+      for (const item of chiTiet) {
+        const { MaHangHoa: rawMaHangHoa, SoTienToiDa } = item;
+        const MaHangHoa = Number(rawMaHangHoa);
+        if (!MaHangHoa || !SoTienToiDa) continue;
+        newMaHangHoas.push(MaHangHoa);
+        await tx.chiTietHopDong.upsert({
+          where: { MaHopDong_MaHangHoa: { MaHopDong: Number(contractId), MaHangHoa } },
+          update: { SoTienToiDa },
+          create: { MaHopDong: Number(contractId), MaHangHoa, SoTienToiDa }
+        });
+      }
+      // delete items not in the new list (handles deletion from UI)
+      await tx.chiTietHopDong.deleteMany({
+        where: {
+          MaHopDong: Number(contractId),
+          MaHangHoa: { notIn: newMaHangHoas }
+        }
+      });
+    }
+
+    // return fresh contract with details
+    return tx.hopDong.findUnique({ where: { MaHopDong: Number(contractId) }, include: { coQuan: true, chiTiet: { include: { hangHoa: true } } } });
+  });
+}
+

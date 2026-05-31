@@ -3,6 +3,29 @@ import { apiRequest } from '../../api/client';
 import Alert from '../../components/ui/Alert';
 
 export default function DeliveryPage() {
+  const statusClasses = {
+    ChoDuyet:    'bg-yellow-100 text-yellow-800',
+    DaDuyet:     'bg-blue-100 text-blue-800',
+    SanSangGiao: 'bg-emerald-100 text-emerald-800',
+    GiaoMotPhan: 'bg-orange-100 text-orange-800',
+    DangGiao:    'bg-sky-100 text-sky-800',
+    DangDongGoi: 'bg-slate-100 text-slate-700',
+    DaGiao:      'bg-green-100 text-green-800',
+    ThatBai:     'bg-red-100 text-red-800',
+    Huy:         'bg-red-100 text-red-800',
+  };
+
+  const STATUS_LABEL = {
+    ChoDuyet:    'Chờ duyệt',
+    DaDuyet:     'Đã duyệt',
+    SanSangGiao: 'Sẵn sàng giao',
+    GiaoMotPhan: 'Giao một phần',
+    DangGiao:    'Đang giao',
+    DangDongGoi: 'Đang đóng gói',
+    DaGiao:      'Đã giao',
+    ThatBai:     'Giao thất bại',
+    Huy:         'Đã hủy',
+  };
   const [readyOrders, setReadyOrders] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [forms, setForms] = useState({});
@@ -65,8 +88,26 @@ export default function DeliveryPage() {
     }
   }
 
+  const inProgress = deliveries.filter((d) => d.TrangThai === 'DangGiao').length;
+  const delivered = deliveries.filter((d) => d.TrangThai === 'DaGiao').length;
+  const failed = deliveries.filter((d) => d.TrangThai === 'ThatBai').length;
+
   return (
     <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: 'Chờ tạo phiếu', value: readyOrders.length, color: 'text-amber-600' },
+          { label: 'Đang giao', value: inProgress, color: 'text-sky-600' },
+          { label: 'Đã giao', value: delivered, color: 'text-emerald-600' },
+          { label: 'Thất bại', value: failed, color: 'text-red-600' },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-slate-500">{s.label}</p>
+            <p className={`mt-1 text-2xl font-bold ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
       <section className="rounded-xl bg-white p-6 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900">Đơn hàng sẵn sàng giao</h3>
         <p className="mt-1 text-sm text-slate-500">Chọn ngày giao và đơn vị vận chuyển để tạo phiếu giao hàng.</p>
@@ -93,7 +134,11 @@ export default function DeliveryPage() {
                   <tr key={order.MaDonHang} className="border-t align-top">
                     <td className="p-3 font-medium">#{order.MaDonHang}</td>
                     <td className="p-3">{order.hopDong?.coQuan?.Ten || '-'}</td>
-                    <td className="p-3">{order.TrangThai}</td>
+                    <td className="p-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[order.TrangThai] || 'bg-slate-100 text-slate-700'}`}>
+                        {STATUS_LABEL[order.TrangThai] ?? order.TrangThai}
+                      </span>
+                    </td>
                     <td className="p-3">{delivered}/{ordered}</td>
                     <td className="p-3">
                       <input
@@ -159,7 +204,11 @@ export default function DeliveryPage() {
                   <td className="p-3">{delivery.donHang?.hopDong?.coQuan?.Ten || '-'}</td>
                   <td className="p-3">{new Date(delivery.NgayGiao).toLocaleDateString('vi-VN')}</td>
                   <td className="p-3">{delivery.DonViVanChuyen || '-'}</td>
-                  <td className="p-3">{delivery.TrangThai}</td>
+                  <td className="p-3">
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClasses[delivery.TrangThai] || 'bg-slate-100 text-slate-700'}`}>
+                      {STATUS_LABEL[delivery.TrangThai] ?? delivery.TrangThai}
+                    </span>
+                  </td>
                   <td className="p-3">
                     <button
                       type="button"
