@@ -1,4 +1,5 @@
 import prisma from '../config/prisma.js';
+import { createNotifications } from './notifications.service.js';
 
 export async function createContract(user, data) {
   const { NgayKy, NgayHetHan, chiTiet, TenNguoiKy, ChucVuNguoiKy, DieuKhoan, MaCoQuan: contractAgency } = data;
@@ -34,7 +35,7 @@ export async function createContract(user, data) {
 
   await prisma.$executeRaw`SELECT setval(pg_get_serial_sequence('"HopDong"', 'MaHopDong'), COALESCE((SELECT MAX("MaHopDong") FROM "HopDong"), 1), true)`;
 
-  return prisma.hopDong.create({
+  const contract = await prisma.hopDong.create({
     data: {
       NgayKy: new Date(NgayKy),
       NgayHetHan: new Date(NgayHetHan),
@@ -56,6 +57,20 @@ export async function createContract(user, data) {
       chiTiet: { include: { hangHoa: true } }
     }
   });
+
+  // Thông báo cho nhân viên cơ quan chính phủ
+  const agencyAccount = await prisma.taiKhoanCoQuan.findUnique({
+    where: { MaCoQuan }
+  });
+  if (agencyAccount) {
+    await createNotifications([{
+      MaTaiKhoan: agencyAccount.MaTaiKhoan,
+      NoiDung: `Hợp đồng #${contract.MaHopDong} từ ${contract.coQuan?.Ten || 'đơn vị cung cấp'} đang chờ bạn xác nhận ký.`,
+      Loai: 'ChoKy'
+    }]);
+  }
+
+  return contract;
 }
 
 export async function signContract(contractId, user) {
@@ -80,11 +95,20 @@ export async function signContract(contractId, user) {
     throw Object.assign(new Error('Bạn không có quyền ký hợp đồng này'), { statusCode: 403 });
   }
 
-  return prisma.hopDong.update({
+  const signed = await prisma.hopDong.update({
     where: { MaHopDong: Number(contractId) },
     data: { TrangThai: 'HieuLuc' },
     include: { coQuan: true, chiTiet: { include: { hangHoa: true } } }
   });
+
+  // Thông báo cho nhân viên hợp đồng
+  await createNotifications([{
+    MaTaiKhoan: contract.MaTaiKhoan_NVHD,
+    NoiDung: `Hợp đồng #${contract.MaHopDong} với ${contract.coQuan?.Ten || 'cơ quan'} đã được ký xác nhận và có hiệu lực.`,
+    Loai: 'DaKy'
+  }]);
+
+  return signed;
 }
 
 export async function syncExpiredContracts() {

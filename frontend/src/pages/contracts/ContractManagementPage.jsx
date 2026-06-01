@@ -585,7 +585,7 @@ export default function ContractManagementPage() {
                     const url = URL.createObjectURL(blob);
                     window.open(url, '_blank');
                   } catch (err) {
-                    setGlobalAlert({ type: 'error', message: 'Lỗi: ' + err.message });
+                    setGlobalAlert({ type: 'error', msg: 'Lỗi: ' + err.message });
                   }
                 }}
                   className="rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition-colors" title="Xem PDF">
