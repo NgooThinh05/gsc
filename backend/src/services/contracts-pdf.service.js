@@ -114,7 +114,23 @@ export async function generateContractPdf(contractId) {
             width: 'auto',
             alignment: 'center',
             stack: [
-              { text: 'Ký và dấu', margin: [0, 0, 0, 34] },
+              { text: 'Ký và dấu', margin: [0, 0, 0, contract.TrangThai === 'HieuLuc' ? 6 : 34] },
+              ...(contract.TrangThai === 'HieuLuc' ? [
+                {
+                  text: 'ĐÃ KÝ',
+                  bold: true,
+                  fontSize: 14,
+                  color: '#1d4ed8',
+                  margin: [0, 0, 0, 6],
+                  decoration: 'underline'
+                },
+                contract.TenNguoiKy
+                  ? { text: contract.TenNguoiKy, bold: true, margin: [0, 0, 0, 2] }
+                  : null,
+                contract.ChucVuNguoiKy
+                  ? { text: contract.ChucVuNguoiKy, italics: true, fontSize: 9, margin: [0, 0, 0, 6] }
+                  : null
+              ].filter(Boolean) : []),
               { text: '_________________' },
               { text: `Ngày: ${formatDate(new Date())}`, margin: [0, 10, 0, 0] }
             ]
@@ -150,6 +166,6 @@ function renderContractTerms(termsText) {
 }
 
 function getStatusLabel(status) {
-  const map = { HieuLuc: 'Hiệu lực', TamDung: 'Tạm dừng', HetHan: 'Hết hạn' };
+  const map = { ChoKy: 'Chờ ký', HieuLuc: 'Hiệu lực', TamDung: 'Tạm dừng', HetHan: 'Hết hạn' };
   return map[status] || status;
 }

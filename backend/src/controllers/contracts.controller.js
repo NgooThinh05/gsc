@@ -1,5 +1,14 @@
 import * as contractsService from '../services/contracts.service.js';
 
+export async function signContract(req, res, next) {
+  try {
+    const contract = await contractsService.signContract(req.params.id, req.user);
+    return res.json(contract);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function createContract(req, res, next) {
   try {
     const contract = await contractsService.createContract(req.user, req.body);

@@ -40,7 +40,7 @@ export async function createContract(user, data) {
       NgayHetHan: new Date(NgayHetHan),
       MaCoQuan,
       MaTaiKhoan_NVHD: user.MaTaiKhoan,
-      TrangThai: data.TrangThai || 'HieuLuc',
+      TrangThai: 'ChoKy',
       TenNguoiKy: TenNguoiKy || null,
       ChucVuNguoiKy: ChucVuNguoiKy || null,
       DieuKhoan: DieuKhoan || null,
@@ -55,6 +55,35 @@ export async function createContract(user, data) {
       coQuan: true,
       chiTiet: { include: { hangHoa: true } }
     }
+  });
+}
+
+export async function signContract(contractId, user) {
+  const contract = await prisma.hopDong.findUnique({
+    where: { MaHopDong: Number(contractId) },
+    include: { coQuan: true }
+  });
+
+  if (!contract) {
+    throw Object.assign(new Error('Không tìm thấy hợp đồng'), { statusCode: 404 });
+  }
+
+  if (contract.TrangThai !== 'ChoKy') {
+    throw Object.assign(new Error('Hợp đồng không ở trạng thái chờ ký'), { statusCode: 400 });
+  }
+
+  // Xác minh nhân viên cơ quan thuộc đúng cơ quan của hợp đồng
+  const purchaser = await prisma.taiKhoanCoQuan.findUnique({
+    where: { MaTaiKhoan: user.MaTaiKhoan }
+  });
+  if (!purchaser || purchaser.MaCoQuan !== contract.MaCoQuan) {
+    throw Object.assign(new Error('Bạn không có quyền ký hợp đồng này'), { statusCode: 403 });
+  }
+
+  return prisma.hopDong.update({
+    where: { MaHopDong: Number(contractId) },
+    data: { TrangThai: 'HieuLuc' },
+    include: { coQuan: true, chiTiet: { include: { hangHoa: true } } }
   });
 }
 
@@ -83,8 +112,10 @@ export async function listActiveContracts(user) {
     }
 
     where.MaCoQuan = purchaser.MaCoQuan;
-    where.TrangThai = 'HieuLuc';
-    where.NgayHetHan = { gte: new Date() };
+    where.OR = [
+      { TrangThai: 'ChoKy' },
+      { TrangThai: 'HieuLuc', NgayHetHan: { gte: new Date() } }
+    ];
   }
 
   return prisma.hopDong.findMany({

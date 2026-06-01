@@ -12,11 +12,12 @@ const defaultContractTerms = [
 ].map((term) => `- ${term}`).join('\n');
 
 const statusBadge = {
+  ChoKy:   'bg-sky-100 text-sky-700',
   HieuLuc: 'bg-emerald-100 text-emerald-700',
   TamDung: 'bg-amber-100 text-amber-700',
   HetHan:  'bg-red-100 text-red-700',
 };
-const statusLabel = { HieuLuc: 'Hiệu lực', TamDung: 'Tạm dừng', HetHan: 'Hết hạn' };
+const statusLabel = { ChoKy: 'Chờ ký', HieuLuc: 'Hiệu lực', TamDung: 'Tạm dừng', HetHan: 'Hết hạn' };
 
 function Field({ label, required, children }) {
   return (
@@ -53,7 +54,7 @@ export default function ContractManagementPage() {
   // form
   const [form, setForm] = useState({
     MaCoQuan: '', NgayKy: new Date().toISOString().slice(0, 10),
-    NgayHetHan: '', TrangThai: 'HieuLuc',
+    NgayHetHan: '',
     TenNguoiKy: '', ChucVuNguoiKy: '',
     DieuKhoan: defaultContractTerms,
     chiTiet: [{ ...initialDetail }],
@@ -61,8 +62,21 @@ export default function ContractManagementPage() {
   const [formAlert, setFormAlert] = useState(null);
   const [loading,   setLoading]   = useState(false);
 
+  const [signingId, setSigningId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
   // adjust contract
   const [globalAlert, setGlobalAlert] = useState(null);
+
+  const filteredContracts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return contracts;
+    return contracts.filter((c) =>
+      String(c.MaHopDong).includes(q) ||
+      (c.coQuan?.Ten || '').toLowerCase().includes(q) ||
+      (statusLabel[c.TrangThai] || c.TrangThai).toLowerCase().includes(q)
+    );
+  }, [contracts, searchQuery]);
 
   const selectedProductIds = useMemo(
     () => new Set(form.chiTiet.map((d) => Number(d.MaHangHoa)).filter(Boolean)),
@@ -91,7 +105,7 @@ export default function ContractManagementPage() {
   function openCreate() {
     setForm({
       MaCoQuan: '', NgayKy: new Date().toISOString().slice(0, 10),
-      NgayHetHan: '', TrangThai: 'HieuLuc',
+      NgayHetHan: '',
       TenNguoiKy: '', ChucVuNguoiKy: '',
       DieuKhoan: defaultContractTerms,
       chiTiet: [{ ...initialDetail }],
@@ -131,7 +145,6 @@ export default function ContractManagementPage() {
     try {
       const payload = {
         NgayKy: form.NgayKy, NgayHetHan: form.NgayHetHan,
-        TrangThai: form.TrangThai,
         TenNguoiKy: form.TenNguoiKy || null,
         ChucVuNguoiKy: form.ChucVuNguoiKy || null,
         DieuKhoan: form.DieuKhoan || null,
@@ -150,6 +163,19 @@ export default function ContractManagementPage() {
       setFormAlert({ msg: error.message, type: 'error' });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSign(contractId) {
+    setSigningId(contractId);
+    try {
+      await apiRequest(`/contracts/${contractId}/sign`, { method: 'POST' });
+      await loadData();
+      setGlobalAlert({ msg: 'Xác nhận ký hợp đồng thành công. Hợp đồng đã có hiệu lực.', type: 'success' });
+    } catch (err) {
+      setGlobalAlert({ msg: err.message, type: 'error' });
+    } finally {
+      setSigningId(null);
     }
   }
 
@@ -200,25 +226,47 @@ export default function ContractManagementPage() {
       {globalAlert && <Alert variant={globalAlert.type}>{globalAlert.msg}</Alert>}
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="shrink-0">
           <h3 className="text-xl font-bold text-slate-900">Quản lý hợp đồng</h3>
           <p className="mt-0.5 text-sm text-slate-500">
-            {contracts.length} hợp đồng · hợp đồng quá hạn tự cập nhật khi tải trang
+            {searchQuery ? `${filteredContracts.length} / ${contracts.length}` : contracts.length} hợp đồng
           </p>
         </div>
-        {canCreate && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[.98]"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        <div className="flex flex-1 items-center justify-end gap-3">
+          <div className="relative w-full max-w-xs">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0Z" />
             </svg>
-            Tạo hợp đồng
-          </button>
-        )}
+            <input
+              type="text"
+              placeholder="Tìm theo mã, cơ quan, trạng thái..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-3.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+            {searchQuery && (
+              <button type="button" onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {canCreate && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[.98]"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Tạo hợp đồng
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Bảng danh sách ── */}
@@ -235,7 +283,7 @@ export default function ContractManagementPage() {
             </tr>
           </thead>
           <tbody>
-            {contracts.map((c) => (
+            {filteredContracts.map((c) => (
               <tr key={c.MaHopDong} className="border-t hover:bg-slate-50/60 transition-colors">
                 <td className="px-4 py-3 font-semibold text-slate-700">#{c.MaHopDong}</td>
                 <td className="px-4 py-3">{c.coQuan?.Ten || '—'}</td>
@@ -247,23 +295,35 @@ export default function ContractManagementPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setDetailContract(c)}
-                    className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
-                  >
-                    Xem chi tiết
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDetailContract(c)}
+                      className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+                    >
+                      Xem chi tiết
+                    </button>
+                    {isCoQuan && c.TrangThai === 'ChoKy' && (
+                      <button
+                        type="button"
+                        disabled={signingId === c.MaHopDong}
+                        onClick={() => handleSign(c.MaHopDong)}
+                        className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-60 transition-colors"
+                      >
+                        {signingId === c.MaHopDong ? 'Đang ký...' : 'Xác nhận ký'}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
-            {contracts.length === 0 && (
+            {filteredContracts.length === 0 && (
               <tr>
                 <td className="px-4 py-12 text-center text-slate-400" colSpan={6}>
                   <svg className="mx-auto mb-3 h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                   </svg>
-                  Chưa có hợp đồng nào
+                  {searchQuery ? 'Không tìm thấy hợp đồng phù hợp' : 'Chưa có hợp đồng nào'}
                 </td>
               </tr>
             )}
@@ -319,14 +379,6 @@ export default function ContractManagementPage() {
                       ))}
                     </select>
                   )}
-                </Field>
-
-                <Field label="Trạng thái">
-                  <select className={inputCls} value={form.TrangThai}
-                    onChange={(e) => updateForm('TrangThai', e.target.value)}>
-                    <option value="HieuLuc">Hiệu lực</option>
-                    <option value="TamDung">Tạm dừng</option>
-                  </select>
                 </Field>
 
                 <Field label="Ngày ký" required>
@@ -499,6 +551,19 @@ export default function ContractManagementPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                {isCoQuan && detailContract.TrangThai === 'ChoKy' && (
+                  <button
+                    type="button"
+                    disabled={signingId === detailContract.MaHopDong}
+                    onClick={async () => {
+                      await handleSign(detailContract.MaHopDong);
+                      setDetailContract(null);
+                    }}
+                    className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-60 transition-colors"
+                  >
+                    {signingId === detailContract.MaHopDong ? 'Đang ký...' : 'Xác nhận ký'}
+                  </button>
+                )}
                 {isHopDong && (
                   <button
                     type="button"

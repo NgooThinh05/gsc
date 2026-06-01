@@ -238,6 +238,7 @@ enum TrangThaiTaiKhoan {
 }
 
 enum TrangThaiHopDong {
+  ChoKy
   HieuLuc
   HetHan
   TamDung
