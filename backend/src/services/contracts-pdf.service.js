@@ -1,16 +1,27 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import pdfmake from 'pdfmake/js/index.js';
 import prisma from '../config/prisma.js';
 
-const fontBase = '/usr/share/fonts/truetype/dejavu';
+// Đường dẫn tương đối tới thư mục font (chạy được trên mọi OS, không phụ thuộc đường dẫn Linux).
+const fontBase = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../assets/fonts');
 
-pdfmake.addFonts({
-  DejaVuSans: {
-    normal: `${fontBase}/DejaVuSans.ttf`,
-    bold: `${fontBase}/DejaVuSans-Bold.ttf`,
-    italics: `${fontBase}/DejaVuSans-Oblique.ttf`,
-    bolditalics: `${fontBase}/DejaVuSans-BoldOblique.ttf`
-  }
-});
+try {
+  pdfmake.addFonts({
+    Roboto: {
+      normal: path.join(fontBase, 'Roboto-Regular.ttf'),
+      bold: path.join(fontBase, 'Roboto-Bold.ttf'),
+      italics: path.join(fontBase, 'Roboto-Italic.ttf'),
+      bolditalics: path.join(fontBase, 'Roboto-BoldItalic.ttf')
+    }
+  });
+
+  // Tắt cảnh báo bảo mật của pdfmake: chỉ cho đọc font cục bộ, chặn tải tài nguyên qua URL.
+  pdfmake.setLocalAccessPolicy((filePath) => filePath.startsWith(fontBase)); // chỉ cho đọc font cục bộ
+  pdfmake.setUrlAccessPolicy(() => false);                                   // chặn tải tài nguyên URL ngoài
+} catch {
+  // Không bao giờ để việc cấu hình font làm hỏng quá trình tạo PDF.
+}
 
 export async function generateContractPdf(contractId) {
   const contract = await prisma.hopDong.findUnique({
@@ -30,7 +41,7 @@ export async function generateContractPdf(contractId) {
     pageSize: 'A4',
     pageMargins: [40, 40, 40, 50],
     defaultStyle: {
-      font: 'DejaVuSans',
+      font: 'Roboto',
       fontSize: 10,
       lineHeight: 1.25
     },
@@ -64,7 +75,7 @@ export async function generateContractPdf(contractId) {
         ].filter(Boolean)
       },
 
-      ...(contract.nhanVienHopDong22
+      ...(contract.nhanVienHopDong
         ? [
             { text: 'II. NHÂN VIÊN PHỤ TRÁCH', style: 'section' },
             { text: [{ text: 'Tên: ', style: 'label' }, contract.nhanVienHopDong.TenNguoiDung || '—'] },
