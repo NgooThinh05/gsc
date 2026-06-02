@@ -2,6 +2,58 @@ import prisma from '../config/prisma.js';
 import { emitOrderEvent } from '../realtime/orderEvents.js';
 import { createNotifications } from './notifications.service.js';
 
+/**
+ * Receive stock — update inventory when goods arrive at warehouse
+ * @param {Array} items - Array of { MaHangHoa, SoLuongNhap }
+ * @param {string} userId - (Optional) user ID for logging
+ * @returns {Promise} Updated hangHoa records
+ */
+export async function receiveStock(items = []) {
+  return prisma.$transaction(async (tx) => {
+    const updated = [];
+    const errors = [];
+
+    for (const item of items) {
+      try {
+        const { MaHangHoa, SoLuongNhap } = item;
+
+        // Validate input
+        if (!MaHangHoa || MaHangHoa <= 0) {
+          errors.push({ item, error: 'Mã hàng không hợp lệ' });
+          continue;
+        }
+
+        if (!Number.isInteger(SoLuongNhap) || SoLuongNhap < 0) {
+          errors.push({ item, error: 'Số lượng nhập phải là số nguyên >= 0' });
+          continue;
+        }
+
+        // Find existing product
+        const hangHoa = await tx.hangHoa.findUnique({
+          where: { MaHangHoa: Number(MaHangHoa) }
+        });
+
+        if (!hangHoa) {
+          errors.push({ item, error: `Mã hàng #${MaHangHoa} không tồn tại` });
+          continue;
+        }
+
+        // Update inventory
+        const updatedProduct = await tx.hangHoa.update({
+          where: { MaHangHoa: Number(MaHangHoa) },
+          data: { SoLuongTrongKho: hangHoa.SoLuongTrongKho + SoLuongNhap }
+        });
+
+        updated.push(updatedProduct);
+      } catch (error) {
+        errors.push({ item, error: error.message });
+      }
+    }
+
+    return { updated, errors };
+  });
+}
+
 export async function approveOrderForWarehouse(orderId, items = []) {
   return prisma.$transaction(async (tx) => {
     const order = await tx.donDatHang.findUnique({
