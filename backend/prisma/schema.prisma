@@ -197,6 +197,7 @@ model HoaDonThanhToan {
 
 model ThuTuChoi {
   MaThuTuChoi     Int        @id @default(autoincrement())
+  MaThu           String?    @unique
   LiDo            String
   NgayGui         DateTime   @default(now())
   MaDonHang       Int
