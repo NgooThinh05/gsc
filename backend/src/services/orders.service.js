@@ -255,12 +255,13 @@ export async function rejectOrder(userId, orderId, reason) {
     }
 
     // 2.4.2 - Soạn / lưu thư từ chối kèm lí do
-    await tx.thuTuChoi.create({
-      data: {
-        LiDo,
-        MaDonHang: order.MaDonHang,
-        MaTaiKhoan_NVHD: userId
-      }
+    const thuTuChoi = await tx.thuTuChoi.create({
+      data: { LiDo, MaDonHang: order.MaDonHang, MaTaiKhoan_NVHD: userId }
+    });
+    const year = new Date().getFullYear();
+    await tx.thuTuChoi.update({
+      where: { MaThuTuChoi: thuTuChoi.MaThuTuChoi },
+      data: { MaThu: `TTC-${year}-${String(thuTuChoi.MaThuTuChoi).padStart(5, '0')}` }
     });
 
     // Tạo thông báo gửi về cho tài khoản mua sắm (khách hàng) kèm liên kết đến đơn
