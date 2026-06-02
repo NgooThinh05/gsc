@@ -8,3 +8,16 @@ export async function approveOrder(req, res, next) {
     return next(error);
   }
 }
+
+export async function receiveStock(req, res, next) {
+  try {
+    const { items, GhiChu } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Danh sách mặt hàng nhập không hợp lệ' });
+    }
+    const result = await warehouseService.receiveStock(items);
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+}

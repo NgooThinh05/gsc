@@ -11,6 +11,11 @@ export default function WarehouseOrderDetailPage() {
   const [productForm, setProductForm] = useState({ Ten: '', SoLuongTrongKho: '', Gia: '' });
   const [alert, setAlert] = useState(null);
 
+  // Receive stock form state (multi-row)
+  const [receiveRows, setReceiveRows] = useState([{ MaHangHoa: '', SoLuongNhap: '' }]);
+  const [receiveAlert, setReceiveAlert] = useState(null);
+  const [receiveSubmitting, setReceiveSubmitting] = useState(false);
+
   // Modal state
   const [modal, setModal] = useState(null); // { order, quantities }
   const [modalAlert, setModalAlert] = useState(null);
@@ -95,6 +100,54 @@ export default function WarehouseOrderDetailPage() {
     }
   }
 
+  // Receive stock helpers
+  function addReceiveRow() {
+    setReceiveRows((s) => [...s, { MaHangHoa: '', SoLuongNhap: '' }]);
+  }
+  function removeReceiveRow(index) {
+    setReceiveRows((s) => s.filter((_, i) => i !== index));
+  }
+  function updateReceiveRow(index, patch) {
+    setReceiveRows((s) => s.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+
+  async function handleReceiveSubmit(e) {
+    e.preventDefault();
+    setReceiveAlert(null);
+    // validate
+    const items = [];
+    for (const r of receiveRows) {
+      const MaHangHoa = Number(r.MaHangHoa);
+      const SoLuongNhap = Number(r.SoLuongNhap);
+      if (!MaHangHoa || !Number.isInteger(SoLuongNhap) || SoLuongNhap <= 0) {
+        setReceiveAlert({ msg: 'Vui lòng điền đúng mã hàng và số lượng (>0) cho tất cả dòng', type: 'error' });
+        return;
+      }
+      items.push({ MaHangHoa, SoLuongNhap });
+    }
+
+    setReceiveSubmitting(true);
+    try {
+      const result = await apiRequest('/warehouse/receive', {
+        method: 'POST',
+        body: JSON.stringify({ items })
+      });
+
+      if (result?.errors && result.errors.length > 0) {
+        setReceiveAlert({ msg: `Một số dòng không nhập được: ${result.errors.map((e) => e.error).join('; ')}`, type: 'error' });
+      } else {
+        setReceiveAlert({ msg: 'Nhập hàng thành công', type: 'success' });
+        setReceiveRows([{ MaHangHoa: '', SoLuongNhap: '' }]);
+      }
+
+      await loadProducts();
+    } catch (err) {
+      setReceiveAlert({ msg: err.message, type: 'error' });
+    } finally {
+      setReceiveSubmitting(false);
+    }
+  }
+
   const filteredOrders = pendingOrders.filter((o) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -133,6 +186,83 @@ export default function WarehouseOrderDetailPage() {
           </button>
         </form>
         {alert && <Alert variant={alert.type} className="mt-4">{alert.msg}</Alert>}
+      </section>
+
+      {/* Nhập hàng (multi-row) */}
+      <section className="rounded-xl bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-900">Nhập hàng vào kho</h3>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={addReceiveRow}
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              + Thêm dòng
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleReceiveSubmit} className="mt-4">
+          <div className="overflow-hidden rounded-lg border border-slate-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-100 text-slate-700">
+                <tr>
+                  <th className="p-3">Mã hàng</th>
+                  <th className="p-3">Tên hàng</th>
+                  <th className="p-3">Số lượng nhập</th>
+                  <th className="p-3">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receiveRows.map((row, idx) => {
+                  const selectedProduct = products.find((p) => Number(p.MaHangHoa) === Number(row.MaHangHoa));
+                  return (
+                    <tr key={idx} className="border-t">
+                      <td className="p-3">
+                        <select
+                          value={row.MaHangHoa}
+                          onChange={(e) => updateReceiveRow(idx, { MaHangHoa: e.target.value })}
+                          className="rounded-lg border border-slate-300 px-3 py-2"
+                        >
+                          <option value="">-- Chọn mã hàng --</option>
+                          {products.map((p) => (
+                            <option key={p.MaHangHoa} value={p.MaHangHoa}>#{p.MaHangHoa}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-3 font-medium">{selectedProduct ? selectedProduct.Ten : '-'}</td>
+                      <td className="p-3">
+                        <input
+                          type="number"
+                          min="1"
+                          value={row.SoLuongNhap}
+                          onChange={(e) => updateReceiveRow(idx, { SoLuongNhap: e.target.value })}
+                          className="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-center"
+                        />
+                      </td>
+                      <td className="p-3">
+                        <button type="button" onClick={() => removeReceiveRow(idx)} className="text-red-600 hover:underline">Xóa</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {receiveAlert && <Alert variant={receiveAlert.type} className="mt-4">{receiveAlert.msg}</Alert>}
+
+          <div className="mt-4 flex justify-end">
+            <button
+              type="submit"
+              disabled={receiveSubmitting}
+              className="rounded-lg bg-blue-600 px-5 py-2.5 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {receiveSubmitting ? 'Đang nhập...' : 'Xác nhận nhập hàng'}
+            </button>
+          </div>
+        </form>
       </section>
 
       {/* Tồn kho */}
