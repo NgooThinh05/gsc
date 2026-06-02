@@ -50,6 +50,7 @@ export default function RejectionLettersPage() {
                 <th className="p-3">Cơ quan</th>
                 <th className="p-3">Trạng thái</th>
                 <th className="p-3">Tổng tiền</th>
+                <th className="p-3">Mã thư</th>
                 <th className="p-3">Lí do từ chối</th>
                 <th className="p-3">Ngày từ chối</th>
               </tr>
@@ -72,6 +73,11 @@ export default function RejectionLettersPage() {
                         <td className="p-3" rowSpan={order.ThuTuChoi.length}>{Number(order.TongTien).toLocaleString('vi-VN')} đ</td>
                       </>
                     )}
+                    <td className="p-3">
+                      {letter.MaThu
+                        ? <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-500">{letter.MaThu}</span>
+                        : <span className="text-slate-400">—</span>}
+                    </td>
                     <td className="p-3 text-red-700">{letter.LiDo}</td>
                     <td className="p-3 text-slate-500">{new Date(letter.NgayGui).toLocaleDateString('vi-VN')}</td>
                   </tr>
@@ -79,7 +85,7 @@ export default function RejectionLettersPage() {
               )}
               {orders.length === 0 && (
                 <tr>
-                  <td className="p-6 text-center text-slate-500" colSpan="8">Chưa có thư từ chối nào</td>
+                  <td className="p-6 text-center text-slate-500" colSpan="9">Chưa có thư từ chối nào</td>
                 </tr>
               )}
             </tbody>
