@@ -46,12 +46,31 @@ function getPaymentAmount(order) {
 
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState([]);
-  const [paymentOrder, setPaymentOrder] = useState(null);
+  const [paymentOrderId, setPaymentOrderId] = useState(null);
+  const paymentOrder = orders.find((o) => o.MaDonHang === paymentOrderId) || null;
   const [paymentMethod, setPaymentMethod] = useState('ChuyenKhoan');
   const [payStatus, setPayStatus] = useState('idle'); // idle | waiting | paid | error
   const [payResult, setPayResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const timerRef = useRef(null);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('All');
+
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch =
+      searchTerm.trim() === '' ||
+      order.MaDonHang.toString().includes(searchTerm) ||
+      (order.MaHopDong && order.MaHopDong.toString().includes(searchTerm)) ||
+      (order.hopDong?.coQuan?.Ten || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.chiTiet.some((detail) =>
+        detail.hangHoa.Ten.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+    const matchesStatus = selectedStatus === 'All' || order.TrangThai === selectedStatus;
+
+    return matchesSearch && matchesStatus;
+  });
 
   function loadOrders() {
     return apiRequest('/orders').then(setOrders);
@@ -104,7 +123,11 @@ export default function MyOrdersPage() {
     setPayResult(null);
 
     if (paymentMethod !== 'ChuyenKhoan') {
-      setPayStatus('idle');
+      if (invoice.PhuongThuc === 'TienMat') {
+        setPayStatus('cash_requested');
+      } else {
+        setPayStatus('idle');
+      }
       return undefined;
     }
 
@@ -121,13 +144,38 @@ export default function MyOrdersPage() {
 
   function openPayment(order) {
     setErrorMsg('');
-    setPaymentMethod('ChuyenKhoan');
-    setPaymentOrder(order);
+    const invoice = order.hoaDons?.[0];
+    if (invoice && invoice.PhuongThuc === 'TienMat' && invoice.TrangThai === 'ChoThanhToan') {
+      setPaymentMethod('TienMat');
+      setPayStatus('cash_requested');
+    } else {
+      setPaymentMethod('ChuyenKhoan');
+      setPayStatus('idle');
+    }
+    setPaymentOrderId(order.MaDonHang);
+  }
+
+  async function requestCashPayment(order) {
+    const invoice = order.hoaDons?.[0];
+    if (!invoice) return;
+
+    setPayStatus('waiting');
+    setErrorMsg('');
+    try {
+      await apiRequest(`/invoices/${invoice.MaHoaDon}/request-cash`, {
+        method: 'PATCH'
+      });
+      setPayStatus('cash_requested');
+      await loadOrders();
+    } catch (error) {
+      setPayStatus('error');
+      setErrorMsg(error.message);
+    }
   }
 
   function closePayment() {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setPaymentOrder(null);
+    setPaymentOrderId(null);
     setPayStatus('idle');
     setPayResult(null);
   }
@@ -169,6 +217,49 @@ export default function MyOrdersPage() {
       <p className="mt-1 text-sm text-slate-500">Theo dõi trạng thái duyệt, xuất kho, giao thiếu/giao đủ và hóa đơn của các đơn đã đặt.</p>
       {errorMsg && <Alert variant="error" className="mt-4">{errorMsg}</Alert>}
 
+      {/* Tìm kiếm và Lọc trạng thái */}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <div className="relative flex-1 max-w-md">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+            <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </span>
+          <input
+            type="text"
+            placeholder="Tìm kiếm theo mã đơn, mã hợp đồng, tên sản phẩm..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-10 text-sm placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label htmlFor="status-filter" className="text-sm font-medium text-slate-700 whitespace-nowrap">Trạng thái:</label>
+          <select
+            id="status-filter"
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+          >
+            <option value="All">Tất cả trạng thái</option>
+            {Object.entries(ORDER_LABEL).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="mt-6 overflow-hidden rounded-lg border border-slate-200">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-100 text-slate-700">
@@ -187,7 +278,7 @@ export default function MyOrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => {
+            {filteredOrders.map((order) => {
               const invoice = order.hoaDons?.[0];
               const paid = invoice?.TrangThai === 'DaThanhToan';
               return (
@@ -220,6 +311,14 @@ export default function MyOrdersPage() {
                       <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
                         Đã thanh toán
                       </span>
+                    ) : invoice?.PhuongThuc === 'TienMat' ? (
+                      <button
+                        type="button"
+                        onClick={() => openPayment(order)}
+                        className="rounded-lg bg-orange-500 hover:bg-orange-600 px-3 py-2 text-xs font-semibold text-white transition-colors"
+                      >
+                        Chờ xác nhận TM
+                      </button>
                     ) : (
                       <button
                         type="button"
@@ -234,9 +333,11 @@ export default function MyOrdersPage() {
                 </tr>
               );
             })}
-            {orders.length === 0 && (
+            {filteredOrders.length === 0 && (
               <tr>
-                <td className="p-6 text-center text-slate-500" colSpan="10">Bạn chưa có đơn hàng nào</td>
+                <td className="p-6 text-center text-slate-500" colSpan="11">
+                  {orders.length === 0 ? 'Bạn chưa có đơn hàng nào' : 'Không tìm thấy đơn hàng phù hợp'}
+                </td>
               </tr>
             )}
           </tbody>
@@ -262,7 +363,7 @@ export default function MyOrdersPage() {
               <select
                 value={paymentMethod}
                 onChange={(event) => setPaymentMethod(event.target.value)}
-                disabled={payStatus === 'paid'}
+                disabled={payStatus === 'paid' || payStatus === 'cash_requested' || paymentInvoice?.PhuongThuc === 'TienMat'}
                 className="mt-2 w-full rounded-lg border px-3 py-2"
               >
                 <option value="ChuyenKhoan">Chuyển khoản (QR)</option>
@@ -286,12 +387,17 @@ export default function MyOrdersPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>
-                <p className="mt-3 text-lg font-bold text-green-700">Thanh toán thành công</p>
+                <p className="mt-3 text-lg font-bold text-green-700">Đã thanh toán thành công</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  Mã giao dịch: <span className="font-mono font-semibold text-slate-900">{payResult?.MaGiaoDich}</span>
+                  Phương thức: <span className="font-semibold text-slate-900">{paymentMethod === 'TienMat' ? 'Tiền mặt' : 'Chuyển khoản (QR)'}</span>
                 </p>
-                <p className="text-sm text-slate-500">
-                  Đã gửi thông báo tới nhân viên mua sắm, nhân viên hợp đồng và quản lý.
+                {payResult?.MaGiaoDich && (
+                  <p className="text-sm text-slate-600">
+                    Mã giao dịch: <span className="font-mono font-semibold text-slate-900">{payResult.MaGiaoDich}</span>
+                  </p>
+                )}
+                <p className="text-sm text-slate-500 mt-2">
+                  Hóa đơn đã được xác nhận thanh toán thành công trên hệ thống.
                 </p>
               </div>
             ) : paymentMethod === 'ChuyenKhoan' ? (
@@ -316,15 +422,35 @@ export default function MyOrdersPage() {
                   </button>
                 )}
               </div>
+            ) : payStatus === 'cash_requested' ? (
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-100">
+                  <svg className="h-8 w-8 text-orange-600 animate-pulse" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="mt-3 text-lg font-bold text-orange-700">Đã đăng ký thanh toán tiền mặt</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Đang chờ Nhân viên Hợp đồng kiểm tra thực tế và xác nhận đã nhận số tiền: <span className="font-semibold text-slate-900">{paymentAmount.toLocaleString('vi-VN')} đ</span>.
+                </p>
+                <p className="text-xs text-slate-400 mt-2">
+                  (Vui lòng bàn giao tiền mặt trực tiếp cho nhân viên của GSC để hoàn tất thanh toán).
+                </p>
+              </div>
+            ) : payStatus === 'waiting' ? (
+              <div className="flex flex-col items-center text-center py-4">
+                <span className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+                <p className="mt-3 text-sm text-blue-700">Đang gửi yêu cầu đăng ký...</p>
+              </div>
             ) : (
               <div className="flex flex-col items-center text-center">
-                <p className="text-sm text-slate-600">Xác nhận đã nhận tiền mặt để hoàn tất hóa đơn.</p>
+                <p className="text-sm text-slate-600 mb-3">Bạn đã chọn thanh toán bằng Tiền mặt. Vui lòng bấm đăng ký để hệ thống lưu hồ sơ đối soát.</p>
                 <button
                   type="button"
-                  onClick={() => runPayment(paymentOrder, paymentMethod)}
-                  className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                  onClick={() => requestCashPayment(paymentOrder)}
+                  className="rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 transition-all shadow-sm active:scale-95"
                 >
-                  Xác nhận đã thanh toán
+                  Yêu cầu thanh toán tiền mặt
                 </button>
               </div>
             )}
@@ -333,7 +459,7 @@ export default function MyOrdersPage() {
       )}
 
       <div className="mt-6 space-y-4">
-        {orders.map((order) => (
+        {filteredOrders.map((order) => (
           <div key={`detail-${order.MaDonHang}`} className="rounded-lg border border-slate-200 p-4">
             <h4 className="font-semibold text-slate-900">Chi tiết đơn #{order.MaDonHang}</h4>
             <div className="mt-3 overflow-hidden rounded-lg border border-slate-100">
