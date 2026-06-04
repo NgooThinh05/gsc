@@ -18,7 +18,8 @@ npm prisma generate
 # 4. Khởi chạy server
 npm run dev
 
-### ⚙️ Phần 2: Khởi chạy fontend (terminal ≠)
+
+### ⚙️ Phần 2: Khởi chạy fontend (terminal khác)
 # Di chuyển vào thư mục frontend
 cd frontend
 
