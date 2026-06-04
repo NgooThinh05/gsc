@@ -148,10 +148,6 @@ VITE_API_URL="http://localhost:3000"
 - **Module not found**: Run `npm install` again and check for typos in imports
 - **Prisma errors**: Run `npx prisma generate` and `npx prisma migrate dev`
 
-## License
-
-[Add your license here]
-
 ## Support
 
 For issues or questions, please create an issue in this repository.
