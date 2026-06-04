@@ -1,6 +1,8 @@
-# GSC Project
+# GSC Project - Contract & Order Management System
 
 A full-stack web application with a powerful backend API and modern frontend interface. This project is developed for educational purposes as part of a university coursework.
+
+> **⚠️ Disclaimer**: This project is for educational purposes only. It is developed as part of university coursework and should not be used in production environments.
 
 ## About
 
